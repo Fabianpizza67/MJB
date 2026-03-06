@@ -1,0 +1,27 @@
+name: MJB
+version: 1.0
+main: com.UserMC.MJB.MJB
+api-version: "1.21"
+authors: Fabianpizza
+description: CityLife core plugin
+depend: [Vault]
+softdepend: [Citizens]
+
+commands:
+  pay:
+    description: Pay another player from your bank account
+    usage: /pay <player> <amount>
+  deposit:
+    description: Deposit cash into your bank account (must be at a bank)
+    usage: /deposit <amount>
+  withdraw:
+    description: Withdraw cash from your bank account (must be at a bank)
+    usage: /withdraw <amount>
+  mjbadmin:
+    description: Admin command for CityLife management
+    usage: /mjbadmin <subcommand>
+    permission: mjb.admin
+permissions:
+  mjb.admin:
+    description: Access to Admin commands
+    default: op
