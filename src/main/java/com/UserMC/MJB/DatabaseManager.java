@@ -159,6 +159,11 @@ public class DatabaseManager {
                             "PRIMARY KEY (world, x, y, z)" +
                             ")"
             );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS cancelled_cards (" +
+                            "player_uuid VARCHAR(36) PRIMARY KEY" +
+                            ")"
+            );
 
             plugin.getLogger().info("Database tables created/verified.");
         } catch (SQLException e) {

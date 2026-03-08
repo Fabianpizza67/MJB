@@ -27,10 +27,10 @@ public class BuyCardCommand implements CommandExecutor {
             return true;
         }
 
-        // Check if they already have one
+        // Check if they already have a valid (non-cancelled) card
         if (plugin.getDebitCardManager().playerHasCard(player)) {
             player.sendMessage("§4You already have a debit card!");
-            player.sendMessage("§7Lost it? Visit the bank and use §f/buycard §7to get a replacement.");
+            player.sendMessage("§7If it was stolen, use §f/cancelcard §7first, then buy a new one.");
             return true;
         }
 
@@ -42,6 +42,9 @@ public class BuyCardCommand implements CommandExecutor {
             player.sendMessage("§7A debit card costs §f" + plugin.getEconomyManager().format(price) + "§7.");
             return true;
         }
+
+        // Reinstate card in DB (clears any previous cancellation)
+        plugin.getDebitCardManager().reinstateCard(player.getUniqueId());
 
         // Deduct from bank
         String sql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";

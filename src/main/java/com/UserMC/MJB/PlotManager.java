@@ -175,20 +175,22 @@ public class PlotManager {
         if (!hasClaimedStarter(player.getUniqueId())) return;
         if (!shouldLoseStarterApartment(player.getUniqueId())) return;
 
-        String sql = "SELECT region_id FROM starter_apartments WHERE claimed_by = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        String plotSql = "SELECT region_id, plot_type, purchased_at FROM plots WHERE owner_uuid = ? " +
+                "AND plot_type != 'starter_apartment' " +
+                "AND purchased_at IS NOT NULL " +
+                "AND purchased_at <= NOW() - INTERVAL 24 HOUR";
+        try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(plotSql)) {
             stmt.setString(1, player.getUniqueId().toString());
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                String regionId = rs.getString("region_id");
-                boolean success = unclaimStarterApartment(regionId);
-                if (success) {
-                    player.sendMessage("§4Your starter apartment §b" + regionId + " §4has been reclaimed.");
-                    player.sendMessage("§7You have owned another property for over 24 hours.");
-                }
+            java.sql.ResultSet rs = stmt.executeQuery();
+            if (!rs.next()) {
+                plugin.getLogger().info("[DEBUG] No qualifying plot found for " + player.getName() + " — skipping reclaim.");
+                return;
             }
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error reclaiming starter apartment: " + e.getMessage());
+            plugin.getLogger().info("[DEBUG] Qualifying plot found: " + rs.getString("region_id") +
+                    " type=" + rs.getString("plot_type") + " purchased=" + rs.getTimestamp("purchased_at"));
+        } catch (java.sql.SQLException e) {
+            plugin.getLogger().severe("Error checking plots for reclaim: " + e.getMessage());
+            return;
         }
     }
 
@@ -320,6 +322,36 @@ public class PlotManager {
             this.plotType = plotType;
             this.purchasedAt = purchasedAt;
             this.members = members;
+        }
+    }
+
+    public String getRegionAtLocation(org.bukkit.Location loc) {
+        com.sk89q.worldguard.protection.managers.RegionManager manager =
+                com.sk89q.worldguard.WorldGuard.getInstance().getPlatform().getRegionContainer()
+                        .get(BukkitAdapter.adapt(loc.getWorld()));
+        if (manager == null) return null;
+
+        com.sk89q.worldguard.protection.ApplicableRegionSet regions =
+                manager.getApplicableRegions(com.sk89q.worldedit.math.BlockVector3.at(
+                        loc.getBlockX(), loc.getBlockY(), loc.getBlockZ()));
+
+        for (com.sk89q.worldguard.protection.regions.ProtectedRegion region : regions) {
+            if (!region.getId().equals("__global__")) return region.getId();
+        }
+        return null;
+    }
+
+    // Check if a player owns a given region in the plots table
+    public boolean isPlotOwner(java.util.UUID playerUuid, String regionId) {
+        String sql = "SELECT 1 FROM plots WHERE region_id = ? AND owner_uuid = ?";
+        try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setString(1, regionId);
+            stmt.setString(2, playerUuid.toString());
+            java.sql.ResultSet rs = stmt.executeQuery();
+            return rs.next();
+        } catch (java.sql.SQLException e) {
+            plugin.getLogger().severe("Error checking plot owner: " + e.getMessage());
+            return false;
         }
     }
 }

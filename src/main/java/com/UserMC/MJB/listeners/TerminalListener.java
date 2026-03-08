@@ -7,20 +7,16 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 public class TerminalListener implements Listener {
 
     private final MJB plugin;
-
-    // Players currently setting a price — waiting for chat input
-    private final Map<UUID, org.bukkit.Location> awaitingPrice = new HashMap<>();
 
     public TerminalListener(MJB plugin) {
         this.plugin = plugin;
@@ -28,88 +24,88 @@ public class TerminalListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
+        // Ignore off-hand firing — prevents double trigger
+        if (event.getHand() != EquipmentSlot.HAND) return;
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         if (event.getClickedBlock() == null) return;
         if (event.getClickedBlock().getType() != Material.PURPUR_STAIRS) return;
 
-        Player player = event.getPlayer();
         org.bukkit.Location loc = event.getClickedBlock().getLocation();
-
-        // Sneaking = owner wants to set price
-        if (player.isSneaking()) {
-            if (!plugin.getTerminalManager().isTerminal(loc)) {
-                player.sendMessage("§4This terminal is not registered.");
-                return;
-            }
-
-            TerminalData data = plugin.getTerminalManager().getTerminalData(loc);
-            if (!data.ownerUuid.equals(player.getUniqueId()) && !player.hasPermission("mjb.admin")) {
-                player.sendMessage("§4This is not your terminal.");
-                return;
-            }
-
-            event.setCancelled(true);
-            player.sendMessage("§b§lTerminal — Set Price");
-            player.sendMessage("§7Current price: §f" + plugin.getEconomyManager().format(data.currentPrice));
-            player.sendMessage("§7Type the new price in chat, or §fcancel §7to abort.");
-            awaitingPrice.put(player.getUniqueId(), loc);
-            return;
-        }
-
-        // Not sneaking = customer wants to pay
         if (!plugin.getTerminalManager().isTerminal(loc)) return;
 
+        event.setCancelled(true);
+        Player player = event.getPlayer();
+        TerminalData data = plugin.getTerminalManager().getTerminalData(loc);
+
+        // Must be holding a debit card
         ItemStack held = player.getInventory().getItemInMainHand();
         if (!plugin.getDebitCardManager().isDebitCard(held)) {
-            player.sendMessage("§4You need to hold your debit card to pay.");
-            player.sendMessage("§7Buy one at the bank!");
+            player.sendMessage("§4Hold a debit card to pay here.");
+            player.sendMessage("§7Store owner: use §f/terminal set <price> §7to set the price.");
             return;
         }
 
-        UUID cardOwner = plugin.getDebitCardManager().getCardOwner(held);
-        if (cardOwner == null || !cardOwner.equals(player.getUniqueId())) {
-            player.sendMessage("§4This debit card doesn't belong to you!");
-            return;
-        }
-
-        TerminalData data = plugin.getTerminalManager().getTerminalData(loc);
         if (data.currentPrice <= 0) {
             player.sendMessage("§4No price has been set on this terminal yet.");
             return;
         }
 
-        double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
-        if (balance < data.currentPrice) {
-            player.sendMessage("§4Insufficient bank balance.");
-            player.sendMessage("§7Price: §f" + plugin.getEconomyManager().format(data.currentPrice));
-            player.sendMessage("§7Your balance: §f" + plugin.getEconomyManager().format(balance));
+        // Charge whoever the card belongs to — not necessarily the holder
+        UUID cardOwner = plugin.getDebitCardManager().getCardOwner(held);
+        if (cardOwner == null) {
+            player.sendMessage("§4This card is invalid.");
             return;
         }
 
-        // Process payment — deduct from customer, add to store owner
+        // Check if card is cancelled
+        if (plugin.getDebitCardManager().isCardCancelled(held)) {
+            player.sendMessage("§4This card has been cancelled and cannot be used.");
+            return;
+        }
+
+        double balance = plugin.getEconomyManager().getBankBalance(cardOwner);
+        String cardOwnerName = plugin.getServer().getOfflinePlayer(cardOwner).getName();
+
+        if (balance < data.currentPrice) {
+            player.sendMessage("§4Insufficient funds on this card.");
+            player.sendMessage("§7Price: §f" + plugin.getEconomyManager().format(data.currentPrice));
+            return;
+        }
+
         boolean success = plugin.getEconomyManager().transferBank(
-                player.getUniqueId(),
+                cardOwner,
                 data.ownerUuid,
                 data.currentPrice
         );
 
         if (success) {
-            event.setCancelled(true);
             player.sendMessage("§b§m-----------------------------");
             player.sendMessage("§b§l  Payment Successful");
             player.sendMessage("§b§m-----------------------------");
             player.sendMessage("§7Amount: §f" + plugin.getEconomyManager().format(data.currentPrice));
+            player.sendMessage("§7Charged to: §b" + cardOwnerName);
             player.sendMessage("§7Paid to: §b" + plugin.getServer().getOfflinePlayer(data.ownerUuid).getName());
             player.sendMessage("§b§m-----------------------------");
 
-            // Notify the store owner if online
-            Player owner = plugin.getServer().getPlayer(data.ownerUuid);
-            if (owner != null) {
-                owner.sendMessage("§b§l[Terminal] §f" + player.getName() + " §fpaid §b" +
-                        plugin.getEconomyManager().format(data.currentPrice) + " §fat your store!");
+            // Alert the card owner if someone else used their card
+            if (!cardOwner.equals(player.getUniqueId())) {
+                Player cardOwnerPlayer = plugin.getServer().getPlayer(cardOwner);
+                if (cardOwnerPlayer != null) {
+                    cardOwnerPlayer.sendMessage("§4§l[Alert] §f" + player.getName() +
+                            " §fused your debit card and charged §b" +
+                            plugin.getEconomyManager().format(data.currentPrice) + "§f!");
+                    cardOwnerPlayer.sendMessage("§7If this wasn't you, go to the bank and use §f/cancelcard§7.");
+                }
             }
 
-            // Reset terminal price to 0 after payment
+            // Notify the store owner
+            Player storeOwner = plugin.getServer().getPlayer(data.ownerUuid);
+            if (storeOwner != null) {
+                storeOwner.sendMessage("§b§l[Terminal] §f" + player.getName() + " §fpaid §b" +
+                        plugin.getEconomyManager().format(data.currentPrice) + " §fat your terminal!");
+            }
+
+            // Reset price after payment
             plugin.getTerminalManager().setPrice(loc, 0);
         } else {
             player.sendMessage("§4Payment failed. Please try again.");
@@ -117,38 +113,21 @@ public class TerminalListener implements Listener {
     }
 
     @EventHandler
-    public void onChat(AsyncPlayerChatEvent event) {
+    public void onBlockBreak(BlockBreakEvent event) {
+        if (event.getBlock().getType() != Material.PURPUR_STAIRS) return;
+        org.bukkit.Location loc = event.getBlock().getLocation();
+        if (!plugin.getTerminalManager().isTerminal(loc)) return;
+
         Player player = event.getPlayer();
-        if (!awaitingPrice.containsKey(player.getUniqueId())) return;
+        TerminalData data = plugin.getTerminalManager().getTerminalData(loc);
 
-        event.setCancelled(true);
-        String message = event.getMessage().trim();
-
-        if (message.equalsIgnoreCase("cancel")) {
-            awaitingPrice.remove(player.getUniqueId());
-            player.sendMessage("§7Price setting cancelled.");
+        if (!data.ownerUuid.equals(player.getUniqueId()) && !player.hasPermission("mjb.admin")) {
+            event.setCancelled(true);
+            player.sendMessage("§4You can't break someone else's terminal.");
             return;
         }
 
-        double price;
-        try {
-            price = Double.parseDouble(message);
-        } catch (NumberFormatException e) {
-            player.sendMessage("§4Invalid amount. Type a number or §fcancel§4.");
-            return;
-        }
-
-        if (price < 0) {
-            player.sendMessage("§4Price cannot be negative.");
-            return;
-        }
-
-        org.bukkit.Location loc = awaitingPrice.remove(player.getUniqueId());
-
-        // Run on main thread since we're in async chat event
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            plugin.getTerminalManager().setPrice(loc, price);
-            player.sendMessage("§fTerminal price set to §b" + plugin.getEconomyManager().format(price) + "§f.");
-        });
+        plugin.getTerminalManager().unregisterTerminal(loc);
+        player.sendMessage("§7Terminal unregistered.");
     }
 }

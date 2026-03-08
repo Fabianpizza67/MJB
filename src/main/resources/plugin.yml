@@ -27,10 +27,14 @@ commands:
     aliases: [ pi ]
   terminal:
     description: Register or remove a card terminal
-    usage: /terminal <register|remove>
+    usage: /terminal <register|remove|set>
   buycard:
     description: Buy a debit card from the bank
     usage: /buycard
+  cancelcard:
+    description: Cancel your debit card at the bank
+    usage: /cancelcard
+
 
 permissions:
   mjb.admin:

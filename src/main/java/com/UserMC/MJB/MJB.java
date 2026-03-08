@@ -4,8 +4,6 @@ import com.UserMC.MJB.commands.*;
 import com.UserMC.MJB.listeners.*;
 import com.UserMC.MJB.tabcomplete.*;
 import org.bukkit.plugin.java.JavaPlugin;
-import com.UserMC.MJB.listeners.ComputerListener;
-import com.UserMC.MJB.listeners.PickupNPCListener;
 
 public class MJB extends JavaPlugin {
 
@@ -24,33 +22,36 @@ public class MJB extends JavaPlugin {
         instance = this;
         saveDefaultConfig();
 
+        // 1. Database first
         databaseManager = new DatabaseManager(this);
         if (!databaseManager.connect()) {
             getLogger().severe("Failed to connect to database! Disabling plugin.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        cashItemManager = new CashItemManager(this);
-        getServer().getPluginManager().registerEvents(new PlayerDeathListener(this), this);
-        getServer().getPluginManager().registerEvents(new BlockProtectionListener(), this);
-        getServer().getPluginManager().registerEvents(new HousingNPCListener(this), this);
-        getServer().getPluginManager().registerEvents(new ComputerListener(this), this);
-        getServer().getPluginManager().registerEvents(new PickupNPCListener(this), this);
-        getServer().getPluginManager().registerEvents(new ComputerPlaceListener(this), this);
-
         databaseManager.createTables();
+
+        // 2. Managers — must come before any listener registration
+        cashItemManager = new CashItemManager(this);
         economyManager = new EconomyManager(this);
-        bankNPCListener = new BankNPCListener(this);
         plotManager = new PlotManager(this);
         debitCardManager = new DebitCardManager(this);
         terminalManager = new TerminalManager(this);
         supplyOrderManager = new SupplyOrderManager(this);
+        bankNPCListener = new BankNPCListener(this);
 
-
-
+        // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
+        getServer().getPluginManager().registerEvents(new PlayerDeathListener(this), this);
+        getServer().getPluginManager().registerEvents(new BlockProtectionListener(), this);
+        getServer().getPluginManager().registerEvents(new HousingNPCListener(this), this);
         getServer().getPluginManager().registerEvents(bankNPCListener, this);
+        getServer().getPluginManager().registerEvents(new TerminalListener(this), this);
+        getServer().getPluginManager().registerEvents(new ComputerListener(this), this);
+        getServer().getPluginManager().registerEvents(new ComputerPlaceListener(this), this);
+        getServer().getPluginManager().registerEvents(new PickupNPCListener(this), this);
 
+        // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
         getCommand("pay").setTabCompleter(new PayTabCompleter());
 
@@ -70,6 +71,8 @@ public class MJB extends JavaPlugin {
         getCommand("mjbadmin").setTabCompleter(new AdminTabCompleter());
 
         getCommand("buycard").setExecutor(new BuyCardCommand(this));
+        getCommand("cancelcard").setExecutor(new CancelCardCommand(this));
+
         getLogger().info("CityLife Core enabled successfully!");
     }
 

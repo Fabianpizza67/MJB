@@ -1,6 +1,7 @@
 package com.UserMC.MJB.commands;
 
 import com.UserMC.MJB.MJB;
+import com.UserMC.MJB.TerminalManager.TerminalData;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -24,23 +25,32 @@ public class TerminalCommand implements CommandExecutor {
         }
 
         if (args.length == 0) {
-            player.sendMessage("§7Usage: §f/terminal register §7or §f/terminal remove");
+            player.sendMessage("§7Usage: §f/terminal <register|remove|set <price>>");
             return true;
         }
 
-        // Get the block the player is looking at
         Block target = player.getTargetBlockExact(5);
-        if (target == null || target.getType() != Material.PURPUR_STAIRS) {
-            player.sendMessage("§4You must be looking at a Purpur Stairs block.");
-            return true;
-        }
 
         switch (args[0].toLowerCase()) {
             case "register" -> {
-                // Check player is in a plot they own
-                String regionId = plugin.getPlotManager().getRegionAtPlayer(player);
+                if (target == null || target.getType() != Material.PURPUR_STAIRS) {
+                    player.sendMessage("§4You must be looking at a Purpur Stairs block.");
+                    return true;
+                }
+
+                String regionId = plugin.getPlotManager().getRegionAtLocation(target.getLocation());
                 if (regionId == null) {
-                    player.sendMessage("§4You must be inside your own plot to register a terminal.");
+                    player.sendMessage("§4This block is not inside any plot.");
+                    return true;
+                }
+
+                if (!plugin.getPlotManager().isPlotOwner(player.getUniqueId(), regionId)) {
+                    player.sendMessage("§4You don't own this plot.");
+                    return true;
+                }
+
+                if (plugin.getTerminalManager().isTerminal(target.getLocation())) {
+                    player.sendMessage("§4This block is already a registered terminal.");
                     return true;
                 }
 
@@ -51,20 +61,25 @@ public class TerminalCommand implements CommandExecutor {
                 );
 
                 if (success) {
-                    player.sendMessage("§fTerminal registered in §b" + regionId + "§f!");
-                    player.sendMessage("§7Sneak + right-click to set a price.");
+                    player.sendMessage("§fTerminal registered in plot §b" + regionId + "§f!");
+                    player.sendMessage("§7Use §f/terminal set <price> §7while looking at it to set a price.");
                 } else {
                     player.sendMessage("§4Failed to register terminal.");
                 }
             }
 
             case "remove" -> {
+                if (target == null || target.getType() != Material.PURPUR_STAIRS) {
+                    player.sendMessage("§4You must be looking at a Purpur Stairs block.");
+                    return true;
+                }
+
                 if (!plugin.getTerminalManager().isTerminal(target.getLocation())) {
                     player.sendMessage("§4That block is not a registered terminal.");
                     return true;
                 }
 
-                var data = plugin.getTerminalManager().getTerminalData(target.getLocation());
+                TerminalData data = plugin.getTerminalManager().getTerminalData(target.getLocation());
                 if (!data.ownerUuid.equals(player.getUniqueId()) && !player.hasPermission("mjb.admin")) {
                     player.sendMessage("§4That terminal doesn't belong to you.");
                     return true;
@@ -74,7 +89,46 @@ public class TerminalCommand implements CommandExecutor {
                 player.sendMessage("§fTerminal removed successfully.");
             }
 
-            default -> player.sendMessage("§7Usage: §f/terminal register §7or §f/terminal remove");
+            case "set" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§7Usage: §f/terminal set <price>");
+                    return true;
+                }
+
+                if (target == null || target.getType() != Material.PURPUR_STAIRS) {
+                    player.sendMessage("§4You must be looking at a Purpur Stairs block.");
+                    return true;
+                }
+
+                if (!plugin.getTerminalManager().isTerminal(target.getLocation())) {
+                    player.sendMessage("§4That block is not a registered terminal.");
+                    return true;
+                }
+
+                TerminalData data = plugin.getTerminalManager().getTerminalData(target.getLocation());
+                if (!data.ownerUuid.equals(player.getUniqueId()) && !player.hasPermission("mjb.admin")) {
+                    player.sendMessage("§4That terminal doesn't belong to you.");
+                    return true;
+                }
+
+                double price;
+                try {
+                    price = Double.parseDouble(args[1]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid price.");
+                    return true;
+                }
+
+                if (price < 0) {
+                    player.sendMessage("§4Price cannot be negative.");
+                    return true;
+                }
+
+                plugin.getTerminalManager().setPrice(target.getLocation(), price);
+                player.sendMessage("§fTerminal price set to §b" + plugin.getEconomyManager().format(price) + "§f.");
+            }
+
+            default -> player.sendMessage("§7Usage: §f/terminal <register|remove|set <price>>");
         }
 
         return true;
