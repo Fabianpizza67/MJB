@@ -8,10 +8,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.NamespacedKey;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
 
@@ -21,9 +24,14 @@ public class ComputerListener implements Listener {
     private final Map<UUID, String> playerDistrict = new HashMap<>();
     private final Map<UUID, List<OrderLine>> playerCart = new HashMap<>();
 
+    // Tracks which order a player is currently authorizing
+    private final Map<UUID, Integer> awaitingAuthOrderId = new HashMap<>();
+
+    private static final String MAIN_GUI_TITLE = "§b§lComputer";
     private static final String ORDER_GUI_TITLE = "§b§lSupply Order";
     private static final String CART_GUI_TITLE = "§b§lYour Cart";
-    private static final String ORDERS_GUI_TITLE = "§b§lYour Orders";
+    private static final String ORDERS_GUI_TITLE = "§b§lMy Orders";
+    private static final String AUTH_GUI_TITLE = "§b§lAuthorize Pickup";
 
     public ComputerListener(MJB plugin) {
         this.plugin = plugin;
@@ -41,44 +49,35 @@ public class ComputerListener implements Listener {
         event.setCancelled(true);
         Player player = event.getPlayer();
 
-        // Get district from the region they're in
         String district = plugin.getSupplyOrderManager().getNearestDistrict(player.getLocation());
         playerDistrict.put(player.getUniqueId(), district);
 
         openMainMenu(player);
     }
 
+    // ---- Menus ----
+
     private void openMainMenu(Player player) {
-        Inventory gui = plugin.getServer().createInventory(null, 9, "§b§lComputer");
+        Inventory gui = plugin.getServer().createInventory(null, 9, MAIN_GUI_TITLE);
 
-        // Supply Order app
-        ItemStack orderApp = createGuiItem(Material.CHEST, "§f§lSupply Orders", "§7Order stock for your business.");
-        // My Orders app
-        ItemStack myOrdersApp = createGuiItem(Material.PAPER, "§f§lMy Orders", "§7View your pending orders.");
-        // Close
-        ItemStack close = createGuiItem(Material.BARRIER, "§4Close", "§7Close the computer.");
-
-        gui.setItem(2, orderApp);
-        gui.setItem(4, myOrdersApp);
-        gui.setItem(6, close);
+        gui.setItem(2, createGuiItem(Material.CHEST, "§f§lSupply Orders", "§7Order stock for your business."));
+        gui.setItem(4, createGuiItem(Material.PAPER, "§f§lMy Orders", "§7View your pending & ready orders.", "§7Authorize others to pick up for you."));
+        gui.setItem(6, createGuiItem(Material.BARRIER, "§4Close", "§7Close the computer."));
 
         player.openInventory(gui);
     }
 
     private void openOrderMenu(Player player) {
-        // Get player's license — for now default to baker as example
-        // This will hook into the license system later
         String license = "baker"; // TODO: hook into license system
 
         List<SupplyItem> items = plugin.getSupplyOrderManager().getAvailableItems(license);
-
         Inventory gui = plugin.getServer().createInventory(null, 54, ORDER_GUI_TITLE);
 
         int slot = 0;
         for (SupplyItem item : items) {
             if (slot >= 45) break;
             Material mat = Material.valueOf(item.material);
-            ItemStack guiItem = createGuiItem(mat,
+            gui.setItem(slot++, createGuiItem(mat,
                     "§f" + formatMaterial(item.material),
                     "§7Price: §f" + plugin.getEconomyManager().format(item.pricePerItem) + " §7each",
                     "§7Delivery: §f" + formatTime(item.deliverySeconds),
@@ -87,17 +86,11 @@ public class ComputerListener implements Listener {
                     "§eLeft-click §7to add 1",
                     "§eRight-click §7to add 16",
                     "§eShift-click §7to add 64"
-            );
-            gui.setItem(slot++, guiItem);
+            ));
         }
 
-        // Bottom row controls
-        ItemStack viewCart = createGuiItem(Material.GOLD_INGOT, "§f§lView Cart",
-                "§7See your current cart.");
-        ItemStack back = createGuiItem(Material.ARROW, "§fBack", "§7Return to main menu.");
-
-        gui.setItem(49, viewCart);
-        gui.setItem(45, back);
+        gui.setItem(45, createGuiItem(Material.ARROW, "§fBack", "§7Return to main menu."));
+        gui.setItem(49, createGuiItem(Material.GOLD_INGOT, "§f§lView Cart", "§7See your current cart."));
 
         player.openInventory(gui);
     }
@@ -110,34 +103,26 @@ public class ComputerListener implements Listener {
         int slot = 0;
         for (OrderLine line : cart) {
             if (slot >= 45) break;
-            Material mat = Material.valueOf(line.material);
             double lineTotal = line.quantity * line.pricePerItem;
             total += lineTotal;
-            ItemStack guiItem = createGuiItem(mat,
+            gui.setItem(slot++, createGuiItem(Material.valueOf(line.material),
                     "§f" + formatMaterial(line.material),
                     "§7Quantity: §f" + line.quantity,
                     "§7Price each: §f" + plugin.getEconomyManager().format(line.pricePerItem),
                     "§7Line total: §f" + plugin.getEconomyManager().format(lineTotal),
                     "",
                     "§cLeft-click §7to remove"
-            );
-            gui.setItem(slot++, guiItem);
+            ));
         }
 
         double finalTotal = total;
-        ItemStack confirm = createGuiItem(Material.EMERALD,
-                "§a§lConfirm Order",
+        gui.setItem(45, createGuiItem(Material.ARROW, "§fBack", "§7Return to order menu."));
+        gui.setItem(49, createGuiItem(Material.EMERALD, "§a§lConfirm Order",
                 "§7Total: §f" + plugin.getEconomyManager().format(finalTotal),
-                "§7Funds will be deducted from your bank.",
+                "§7Funds deducted from your bank.",
                 "",
-                "§eClick to place order!"
-        );
-        ItemStack back = createGuiItem(Material.ARROW, "§fBack", "§7Return to order menu.");
-        ItemStack clear = createGuiItem(Material.BARRIER, "§4Clear Cart", "§7Remove all items from cart.");
-
-        gui.setItem(49, confirm);
-        gui.setItem(45, back);
-        gui.setItem(53, clear);
+                "§eClick to place order!"));
+        gui.setItem(53, createGuiItem(Material.BARRIER, "§4Clear Cart", "§7Remove all items from cart."));
 
         player.openInventory(gui);
     }
@@ -149,6 +134,7 @@ public class ComputerListener implements Listener {
         int slot = 0;
         for (Order order : orders) {
             if (slot >= 45) break;
+
             Material statusMat = order.status.equals("ready") ? Material.EMERALD :
                     order.status.equals("pending") ? Material.CLOCK : Material.GRAY_DYE;
             String statusColor = order.status.equals("ready") ? "§a" :
@@ -159,31 +145,98 @@ public class ComputerListener implements Listener {
                     "§7Status: " + statusColor + order.status.toUpperCase(),
                     "§7District: §f" + order.district,
                     "§7Total: §f" + plugin.getEconomyManager().format(order.totalCost),
-                    "§7Ordered: §f" + order.orderedAt.toString()
+                    "§7Ordered: §f" + order.orderedAt.toString(),
+                    "",
+                    "§eClick §7to manage authorized pickups"
             );
+
+            // Store order ID in NBT
+            ItemMeta meta = guiItem.getItemMeta();
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "order_id"),
+                    PersistentDataType.INTEGER,
+                    order.id
+            );
+            guiItem.setItemMeta(meta);
             gui.setItem(slot++, guiItem);
         }
 
-        ItemStack back = createGuiItem(Material.ARROW, "§fBack", "§7Return to main menu.");
-        gui.setItem(45, back);
+        gui.setItem(45, createGuiItem(Material.ARROW, "§fBack", "§7Return to main menu."));
 
         player.openInventory(gui);
     }
+
+    private void openAuthMenu(Player player, int orderId) {
+        List<UUID> authorized = plugin.getSupplyOrderManager().getAuthorizedPlayers(orderId);
+        Inventory gui = plugin.getServer().createInventory(null, 54, AUTH_GUI_TITLE);
+
+        // Show currently authorized players
+        int slot = 0;
+        for (UUID uuid : authorized) {
+            if (slot >= 45) break;
+            String name = plugin.getServer().getOfflinePlayer(uuid).getName();
+            if (name == null) name = uuid.toString();
+
+            ItemStack guiItem = createGuiItem(Material.PLAYER_HEAD,
+                    "§b" + name,
+                    "§7Authorized to pick up order §b#" + orderId,
+                    "",
+                    "§cClick §7to remove authorization"
+            );
+
+            // Store UUID in NBT
+            ItemMeta meta = guiItem.getItemMeta();
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "auth_uuid"),
+                    PersistentDataType.STRING,
+                    uuid.toString()
+            );
+            meta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "order_id"),
+                    PersistentDataType.INTEGER,
+                    orderId
+            );
+            guiItem.setItemMeta(meta);
+            gui.setItem(slot++, guiItem);
+        }
+
+        // Add player button
+        ItemStack addButton = createGuiItem(Material.LIME_DYE,
+                "§a§lAuthorize a Player",
+                "§7Type their name in chat after clicking.",
+                "§7They will be able to pick up order §b#" + orderId + "§7."
+        );
+        ItemMeta addMeta = addButton.getItemMeta();
+        addMeta.getPersistentDataContainer().set(
+                new NamespacedKey(plugin, "order_id"),
+                PersistentDataType.INTEGER,
+                orderId
+        );
+        addButton.setItemMeta(addMeta);
+
+        gui.setItem(49, addButton);
+        gui.setItem(45, createGuiItem(Material.ARROW, "§fBack", "§7Return to my orders."));
+
+        player.openInventory(gui);
+    }
+
+    // ---- Click Handler ----
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = event.getView().getTitle();
 
-        if (!title.equals("§b§lComputer") && !title.equals(ORDER_GUI_TITLE) &&
-                !title.equals(CART_GUI_TITLE) && !title.equals(ORDERS_GUI_TITLE)) return;
+        if (!title.equals(MAIN_GUI_TITLE) && !title.equals(ORDER_GUI_TITLE) &&
+                !title.equals(CART_GUI_TITLE) && !title.equals(ORDERS_GUI_TITLE) &&
+                !title.equals(AUTH_GUI_TITLE)) return;
 
         event.setCancelled(true);
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType() == Material.AIR) return;
 
         // Main menu
-        if (title.equals("§b§lComputer")) {
+        if (title.equals(MAIN_GUI_TITLE)) {
             if (clicked.getType() == Material.CHEST) openOrderMenu(player);
             else if (clicked.getType() == Material.PAPER) openMyOrdersMenu(player);
             else if (clicked.getType() == Material.BARRIER) player.closeInventory();
@@ -192,16 +245,9 @@ public class ComputerListener implements Listener {
 
         // Order menu
         if (title.equals(ORDER_GUI_TITLE)) {
-            if (clicked.getType() == Material.ARROW) {
-                openMainMenu(player);
-                return;
-            }
-            if (clicked.getType() == Material.GOLD_INGOT) {
-                openCartMenu(player);
-                return;
-            }
+            if (clicked.getType() == Material.ARROW) { openMainMenu(player); return; }
+            if (clicked.getType() == Material.GOLD_INGOT) { openCartMenu(player); return; }
 
-            // Add item to cart
             String materialName = clicked.getType().name();
             SupplyItem supplyItem = plugin.getSupplyOrderManager().getSupplyItem(materialName);
             if (supplyItem == null) return;
@@ -211,33 +257,23 @@ public class ComputerListener implements Listener {
             if (event.isShiftClick()) amount = 64;
 
             List<OrderLine> cart = playerCart.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>());
-
-            // Check if already in cart
             boolean found = false;
-            for (OrderLine line : cart) {
-                if (line.material.equals(materialName)) {
-                    cart.set(cart.indexOf(line), new OrderLine(
-                            line.material, line.quantity + amount,
-                            line.pricePerItem, line.deliverySeconds
-                    ));
+            for (int i = 0; i < cart.size(); i++) {
+                if (cart.get(i).material.equals(materialName)) {
+                    OrderLine old = cart.get(i);
+                    cart.set(i, new OrderLine(old.material, old.quantity + amount, old.pricePerItem, old.deliverySeconds));
                     found = true;
                     break;
                 }
             }
-            if (!found) {
-                cart.add(new OrderLine(materialName, amount, supplyItem.pricePerItem, supplyItem.deliverySeconds));
-            }
-
+            if (!found) cart.add(new OrderLine(materialName, amount, supplyItem.pricePerItem, supplyItem.deliverySeconds));
             player.sendMessage("§7Added §f" + amount + "x " + formatMaterial(materialName) + " §7to cart.");
             return;
         }
 
         // Cart menu
         if (title.equals(CART_GUI_TITLE)) {
-            if (clicked.getType() == Material.ARROW) {
-                openOrderMenu(player);
-                return;
-            }
+            if (clicked.getType() == Material.ARROW) { openOrderMenu(player); return; }
             if (clicked.getType() == Material.BARRIER) {
                 playerCart.remove(player.getUniqueId());
                 player.sendMessage("§7Cart cleared.");
@@ -245,54 +281,9 @@ public class ComputerListener implements Listener {
                 return;
             }
             if (clicked.getType() == Material.EMERALD) {
-                // Confirm order
-                List<OrderLine> cart = playerCart.getOrDefault(player.getUniqueId(), new ArrayList<>());
-                if (cart.isEmpty()) {
-                    player.sendMessage("§4Your cart is empty!");
-                    return;
-                }
-
-                double total = cart.stream().mapToDouble(l -> l.quantity * l.pricePerItem).sum();
-                double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
-
-                if (balance < total) {
-                    player.sendMessage("§4Insufficient bank balance!");
-                    player.sendMessage("§7Total: §f" + plugin.getEconomyManager().format(total));
-                    player.sendMessage("§7Your balance: §f" + plugin.getEconomyManager().format(balance));
-                    return;
-                }
-
-                // Deduct cost
-                String sql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
-                try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-                    stmt.setDouble(1, total);
-                    stmt.setString(2, player.getUniqueId().toString());
-                    stmt.executeUpdate();
-                } catch (java.sql.SQLException e) {
-                    player.sendMessage("§4Payment failed. Please try again.");
-                    return;
-                }
-
-                String district = playerDistrict.getOrDefault(player.getUniqueId(), "central");
-                int orderId = plugin.getSupplyOrderManager().placeOrder(player.getUniqueId(), district, cart);
-
-                if (orderId == -1) {
-                    player.sendMessage("§4Failed to place order. Please try again.");
-                    return;
-                }
-
-                playerCart.remove(player.getUniqueId());
-                player.closeInventory();
-                player.sendMessage("§b§m-----------------------------");
-                player.sendMessage("§b§l  Order Placed!");
-                player.sendMessage("§b§m-----------------------------");
-                player.sendMessage("§fOrder §b#" + orderId + " §fhas been placed.");
-                player.sendMessage("§7Total charged: §f" + plugin.getEconomyManager().format(total));
-                player.sendMessage("§7You will be notified when it's ready.");
-                player.sendMessage("§b§m-----------------------------");
+                handleConfirmOrder(player);
                 return;
             }
-
             // Remove item from cart
             String materialName = clicked.getType().name();
             List<OrderLine> cart = playerCart.getOrDefault(player.getUniqueId(), new ArrayList<>());
@@ -304,9 +295,134 @@ public class ComputerListener implements Listener {
 
         // My orders menu
         if (title.equals(ORDERS_GUI_TITLE)) {
-            if (clicked.getType() == Material.ARROW) openMainMenu(player);
+            if (clicked.getType() == Material.ARROW) { openMainMenu(player); return; }
+
+            // Get order ID from NBT and open auth menu
+            if (!clicked.hasItemMeta()) return;
+            NamespacedKey orderKey = new NamespacedKey(plugin, "order_id");
+            if (!clicked.getItemMeta().getPersistentDataContainer().has(orderKey, PersistentDataType.INTEGER)) return;
+            int orderId = clicked.getItemMeta().getPersistentDataContainer().get(orderKey, PersistentDataType.INTEGER);
+            openAuthMenu(player, orderId);
+            return;
+        }
+
+        // Auth menu
+        if (title.equals(AUTH_GUI_TITLE)) {
+            if (clicked.getType() == Material.ARROW) { openMyOrdersMenu(player); return; }
+
+            NamespacedKey orderKey = new NamespacedKey(plugin, "order_id");
+            if (!clicked.hasItemMeta()) return;
+
+            // Add player button
+            if (clicked.getType() == Material.LIME_DYE) {
+                if (!clicked.getItemMeta().getPersistentDataContainer().has(orderKey, PersistentDataType.INTEGER)) return;
+                int orderId = clicked.getItemMeta().getPersistentDataContainer().get(orderKey, PersistentDataType.INTEGER);
+                player.closeInventory();
+                player.sendMessage("§b§lAuthorize Pickup §7— Type the player's name in chat, or §fcancel§7.");
+                awaitingAuthOrderId.put(player.getUniqueId(), orderId);
+                return;
+            }
+
+            // Remove authorization
+            NamespacedKey uuidKey = new NamespacedKey(plugin, "auth_uuid");
+            if (!clicked.getItemMeta().getPersistentDataContainer().has(uuidKey, PersistentDataType.STRING)) return;
+            String uuidStr = clicked.getItemMeta().getPersistentDataContainer().get(uuidKey, PersistentDataType.STRING);
+            int orderId = clicked.getItemMeta().getPersistentDataContainer().get(orderKey, PersistentDataType.INTEGER);
+
+            plugin.getSupplyOrderManager().removeAuthorization(orderId, UUID.fromString(uuidStr));
+            String removedName = plugin.getServer().getOfflinePlayer(UUID.fromString(uuidStr)).getName();
+            player.sendMessage("§7Removed §b" + removedName + " §7from authorized pickups for order §b#" + orderId + "§7.");
+            openAuthMenu(player, orderId);
+            return;
         }
     }
+
+    // ---- Chat listener for authorization input ----
+
+    @EventHandler
+    public void onChat(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+        if (!awaitingAuthOrderId.containsKey(player.getUniqueId())) return;
+
+        event.setCancelled(true);
+        String input = event.getMessage().trim();
+
+        if (input.equalsIgnoreCase("cancel")) {
+            awaitingAuthOrderId.remove(player.getUniqueId());
+            player.sendMessage("§7Authorization cancelled.");
+            return;
+        }
+
+        int orderId = awaitingAuthOrderId.remove(player.getUniqueId());
+
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            Player target = plugin.getServer().getPlayer(input);
+            if (target == null) {
+                player.sendMessage("§4Player §f" + input + " §4not found or not online.");
+                return;
+            }
+
+            if (target.equals(player)) {
+                player.sendMessage("§4You are already authorized — you own this order.");
+                return;
+            }
+
+            plugin.getSupplyOrderManager().authorizePlayer(orderId, target.getUniqueId());
+            player.sendMessage("§b" + target.getName() + " §fis now authorized to pick up order §b#" + orderId + "§f.");
+            target.sendMessage("§b§l[Supply] §b" + player.getName() + " §fhas authorized you to pick up order §b#" + orderId + "§f.");
+        });
+    }
+
+    // ---- Order confirmation ----
+
+    private void handleConfirmOrder(Player player) {
+        List<OrderLine> cart = playerCart.getOrDefault(player.getUniqueId(), new ArrayList<>());
+        if (cart.isEmpty()) {
+            player.sendMessage("§4Your cart is empty!");
+            return;
+        }
+
+        double total = cart.stream().mapToDouble(l -> l.quantity * l.pricePerItem).sum();
+        double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
+
+        if (balance < total) {
+            player.sendMessage("§4Insufficient bank balance!");
+            player.sendMessage("§7Total: §f" + plugin.getEconomyManager().format(total));
+            player.sendMessage("§7Your balance: §f" + plugin.getEconomyManager().format(balance));
+            return;
+        }
+
+        String sql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
+        try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setDouble(1, total);
+            stmt.setString(2, player.getUniqueId().toString());
+            stmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            player.sendMessage("§4Payment failed. Please try again.");
+            return;
+        }
+
+        String district = playerDistrict.getOrDefault(player.getUniqueId(), "central");
+        int orderId = plugin.getSupplyOrderManager().placeOrder(player.getUniqueId(), district, cart);
+
+        if (orderId == -1) {
+            player.sendMessage("§4Failed to place order. Please try again.");
+            return;
+        }
+
+        playerCart.remove(player.getUniqueId());
+        player.closeInventory();
+        player.sendMessage("§b§m-----------------------------");
+        player.sendMessage("§b§l  Order Placed!");
+        player.sendMessage("§b§m-----------------------------");
+        player.sendMessage("§fOrder §b#" + orderId + " §fhas been placed.");
+        player.sendMessage("§7Total charged: §f" + plugin.getEconomyManager().format(total));
+        player.sendMessage("§7You will be notified when it's ready.");
+        player.sendMessage("§7Go to §fMy Orders §7to authorize others to pick it up.");
+        player.sendMessage("§b§m-----------------------------");
+    }
+
+    // ---- Helpers ----
 
     private ItemStack createGuiItem(Material material, String name, String... lore) {
         ItemStack item = new ItemStack(material);

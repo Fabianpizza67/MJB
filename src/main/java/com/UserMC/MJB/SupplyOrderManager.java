@@ -162,6 +162,32 @@ public class SupplyOrderManager {
         }
     }
 
+    public List<UUID> getAuthorizedPlayers(int orderId) {
+        List<UUID> authorized = new ArrayList<>();
+        String sql = "SELECT authorized_uuid FROM supply_order_authorizations WHERE order_id = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) authorized.add(UUID.fromString(rs.getString("authorized_uuid")));
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error fetching authorized players: " + e.getMessage());
+        }
+        return authorized;
+    }
+
+    public boolean removeAuthorization(int orderId, UUID uuid) {
+        String sql = "DELETE FROM supply_order_authorizations WHERE order_id = ? AND authorized_uuid = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            stmt.setString(2, uuid.toString());
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error removing authorization: " + e.getMessage());
+            return false;
+        }
+    }
+
     public boolean isAuthorized(int orderId, UUID uuid) {
         Order order = getOrder(orderId);
         if (order == null) return false;
