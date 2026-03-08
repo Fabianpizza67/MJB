@@ -1,6 +1,5 @@
 package com.UserMC.MJB;
 
-import org.bukkit.plugin.java.JavaPlugin;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -17,9 +16,11 @@ public class DatabaseManager {
 
     public boolean connect() {
         try {
+            Class.forName("org.mariadb.jdbc.Driver");
+
             String host = plugin.getConfig().getString("database.host", "localhost");
             int port = plugin.getConfig().getInt("database.port", 3306);
-            String database = plugin.getConfig().getString("database.name", "citylife");
+            String database = plugin.getConfig().getString("database.name", "MJB");
             String username = plugin.getConfig().getString("database.username", "root");
             String password = plugin.getConfig().getString("database.password", "");
 
@@ -29,6 +30,10 @@ public class DatabaseManager {
             connection = DriverManager.getConnection(url, username, password);
             plugin.getLogger().info("Connected to MariaDB successfully!");
             return true;
+
+        } catch (ClassNotFoundException e) {
+            plugin.getLogger().severe("MariaDB driver class not found: " + e.getMessage());
+            return false;
         } catch (SQLException e) {
             plugin.getLogger().severe("Could not connect to MariaDB: " + e.getMessage());
             return false;
@@ -48,17 +53,112 @@ public class DatabaseManager {
 
     public void createTables() {
         try (Statement stmt = connection.createStatement()) {
-            // Players table
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS players (
-                    uuid VARCHAR(36) PRIMARY KEY,
-                    username VARCHAR(16) NOT NULL,
-                    bank_balance DOUBLE NOT NULL DEFAULT 0,
-                    cash_balance DOUBLE NOT NULL DEFAULT 0,
-                    wanted_level INT NOT NULL DEFAULT 0,
-                    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """);
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS players (" +
+                            "uuid VARCHAR(36) PRIMARY KEY," +
+                            "username VARCHAR(16) NOT NULL," +
+                            "bank_balance DOUBLE NOT NULL DEFAULT 0," +
+                            "cash_balance DOUBLE NOT NULL DEFAULT 0," +
+                            "wanted_level INT NOT NULL DEFAULT 0," +
+                            "has_claimed_starter BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            // Add has_claimed_starter column if it doesn't exist yet
+            try {
+                stmt.execute("ALTER TABLE players ADD COLUMN has_claimed_starter BOOLEAN NOT NULL DEFAULT FALSE");
+                plugin.getLogger().info("Added has_claimed_starter column to players table.");
+            } catch (SQLException ignored) {
+                // Column already exists, that's fine
+            }
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS starter_apartments (" +
+                            "region_id VARCHAR(64) PRIMARY KEY," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "is_claimed BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "claimed_by VARCHAR(36) DEFAULT NULL" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS plots (" +
+                            "region_id VARCHAR(64) NOT NULL," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "owner_uuid VARCHAR(36) NOT NULL," +
+                            "plot_type VARCHAR(32) NOT NULL DEFAULT 'apartment'," +
+                            "purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (region_id, world)" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS terminals (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "x INT NOT NULL," +
+                            "y INT NOT NULL," +
+                            "z INT NOT NULL," +
+                            "owner_uuid VARCHAR(36) NOT NULL," +
+                            "store_region VARCHAR(64) NOT NULL," +
+                            "current_price DOUBLE NOT NULL DEFAULT 0," +
+                            "UNIQUE KEY location_key (world, x, y, z)" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS supply_orders (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "owner_uuid VARCHAR(36) NOT NULL," +
+                            "district VARCHAR(64) NOT NULL," +
+                            "status VARCHAR(16) NOT NULL DEFAULT 'pending'," +
+                            "total_cost DOUBLE NOT NULL DEFAULT 0," +
+                            "ordered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "ready_at TIMESTAMP NULL" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS supply_order_items (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "order_id INT NOT NULL," +
+                            "material VARCHAR(64) NOT NULL," +
+                            "quantity INT NOT NULL," +
+                            "price_per_item DOUBLE NOT NULL," +
+                            "FOREIGN KEY (order_id) REFERENCES supply_orders(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS supply_order_authorizations (" +
+                            "order_id INT NOT NULL," +
+                            "authorized_uuid VARCHAR(36) NOT NULL," +
+                            "PRIMARY KEY (order_id, authorized_uuid)," +
+                            "FOREIGN KEY (order_id) REFERENCES supply_orders(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS supply_items (" +
+                            "material VARCHAR(64) PRIMARY KEY," +
+                            "license_required VARCHAR(64) NOT NULL," +
+                            "price_per_item DOUBLE NOT NULL," +
+                            "delivery_seconds INT NOT NULL DEFAULT 1800" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS pickup_npcs (" +
+                            "npc_id INT PRIMARY KEY," +
+                            "district VARCHAR(64) NOT NULL UNIQUE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS computers (" +
+                            "world VARCHAR(64) NOT NULL," +
+                            "x INT NOT NULL," +
+                            "y INT NOT NULL," +
+                            "z INT NOT NULL," +
+                            "owner_uuid VARCHAR(36) NOT NULL," +
+                            "PRIMARY KEY (world, x, y, z)" +
+                            ")"
+            );
 
             plugin.getLogger().info("Database tables created/verified.");
         } catch (SQLException e) {

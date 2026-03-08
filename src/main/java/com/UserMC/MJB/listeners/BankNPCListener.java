@@ -28,16 +28,21 @@ public class BankNPCListener implements Listener {
         double bank = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
         double cash = plugin.getEconomyManager().getCashBalance(player.getUniqueId());
 
-        player.sendMessage("§8§m-----------------------------");
-        player.sendMessage("§6§l  " + npc.getName());
-        player.sendMessage("§8§m-----------------------------");
-        player.sendMessage("§eGood day, §f" + player.getName() + "§e!");
-        player.sendMessage("§eHere is your current balance:");
-        player.sendMessage("§a  Cash on hand: §f" + plugin.getEconomyManager().format(cash));
-        player.sendMessage("§a  Bank balance: §f" + plugin.getEconomyManager().format(bank));
-        player.sendMessage("§8§m-----------------------------");
+        player.sendMessage("§b§m-----------------------------");
+        player.sendMessage("§b§l  " + npc.getName());
+        player.sendMessage("§b§m-----------------------------");
+        player.sendMessage("§fGood day, §b" + player.getName() + "§f!");
+        player.sendMessage("§fHere is your current balance:");
+        player.sendMessage("§7  Cash on hand: §f" + plugin.getEconomyManager().format(cash));
+        player.sendMessage("§7  Bank balance: §f" + plugin.getEconomyManager().format(bank));
+        player.sendMessage("§b§m-----------------------------");
         player.sendMessage("§7Use §f/deposit <amount> §7or §f/withdraw <amount>");
-        player.sendMessage("§8§m-----------------------------");
+
+        if (!plugin.getDebitCardManager().playerHasCard(player)) {
+            player.sendMessage("§7Buy a debit card: §f/buycard");
+        }
+
+        player.sendMessage("§b§m-----------------------------");
     }
 
     // Checks if player is within range of a bank teller NPC

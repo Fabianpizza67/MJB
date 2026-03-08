@@ -54,19 +54,18 @@ public class CashItemManager {
         double total = 0;
         for (ItemStack item : player.getInventory().getContents()) {
             double value = getCashValue(item);
-            if (value >= 0) total += value;
+            if (value >= 0) total += value * item.getAmount();
         }
         return total;
     }
 
-    // Removes all cash items from inventory and returns total value removed
     public double removeAllCash(org.bukkit.entity.Player player) {
         double total = 0;
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
             double value = getCashValue(contents[i]);
             if (value >= 0) {
-                total += value;
+                total += value * contents[i].getAmount();
                 player.getInventory().setItem(i, null);
             }
         }

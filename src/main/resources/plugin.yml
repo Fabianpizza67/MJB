@@ -2,9 +2,9 @@ name: MJB
 version: 1.0
 main: com.UserMC.MJB.MJB
 api-version: "1.21"
-authors: Fabianpizza
+authors: [Fabianpizza]
 description: CityLife core plugin
-depend: [Vault]
+depend: [Vault, WorldGuard]
 softdepend: [Citizens]
 
 commands:
@@ -21,7 +21,18 @@ commands:
     description: Admin command for CityLife management
     usage: /mjbadmin <subcommand>
     permission: mjb.admin
+  plotinfo:
+    description: Show info about the plot you are standing in
+    usage: /plotinfo
+    aliases: [ pi ]
+  terminal:
+    description: Register or remove a card terminal
+    usage: /terminal <register|remove>
+  buycard:
+    description: Buy a debit card from the bank
+    usage: /buycard
+
 permissions:
   mjb.admin:
-    description: Access to Admin commands
+    description: Access to CityLife admin commands
     default: op

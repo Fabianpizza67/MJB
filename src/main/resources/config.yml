@@ -1,0 +1,6 @@
+database:
+  host: 192.168.178.101
+  port: 3306
+  name: MJB
+  username: MJB
+  password: I1m5B!FCevdhe-*6
