@@ -118,7 +118,10 @@ public class SupplyOrderManager {
                 itemStmt.executeBatch();
             }
 
-            int maxDelivery = lines.stream().mapToInt(l -> l.deliverySeconds).max().orElse(1800);
+            int maxDelivery = lines.stream()
+                    .mapToInt(l -> l.quantity * l.deliverySeconds)
+                    .max()
+                    .orElse(1800);
             scheduleDelivery(orderId, maxDelivery);
 
             return orderId;

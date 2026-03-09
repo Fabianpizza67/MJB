@@ -129,6 +129,9 @@ public class EconomyManager {
     }
 
     public String format(double amount) {
-        return String.format("$%.2f", amount);
+        if (amount == Math.floor(amount)) {
+            return "$" + String.format("%.0f", amount);
+        }
+        return "$" + String.format("%.2f", amount);
     }
 }

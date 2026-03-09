@@ -1,9 +1,6 @@
 package com.UserMC.MJB;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 
 public class DatabaseManager {
 
@@ -27,7 +24,13 @@ public class DatabaseManager {
             String url = "jdbc:mariadb://" + host + ":" + port + "/" + database
                     + "?autoReconnect=true&useSSL=false";
 
-            connection = DriverManager.getConnection(url, username, password);
+            java.util.Properties props = new java.util.Properties();
+            props.setProperty("user", username);
+            props.setProperty("password", password);
+            props.setProperty("autoReconnect", "true");
+            props.setProperty("connectionTimeout", "30000");
+            props.setProperty("socketTimeout", "60000");
+            connection = DriverManager.getConnection(url, props);
             plugin.getLogger().info("Connected to MariaDB successfully!");
             return true;
 
@@ -172,6 +175,33 @@ public class DatabaseManager {
     }
 
     public Connection getConnection() {
+        try {
+            if (connection == null || connection.isClosed() || !connection.isValid(3)) {
+                plugin.getLogger().info("[DB] Connection lost — reconnecting...");
+                connect();
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("[DB] Failed to validate connection: " + e.getMessage());
+            connect();
+        }
         return connection;
+    }
+    public void startKeepAlive() {
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            try {
+                if (connection == null || connection.isClosed() || !connection.isValid(3)) {
+                    plugin.getLogger().info("[DB] Keep-alive: connection lost — reconnecting...");
+                    connect();
+                } else {
+                    // Ping the server to keep the connection alive
+                    try (PreparedStatement stmt = connection.prepareStatement("SELECT 1")) {
+                        stmt.executeQuery();
+                    }
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[DB] Keep-alive failed: " + e.getMessage());
+                connect();
+            }
+        }, 20L * 60 * 30, 20L * 60 * 30); // Every 30 minutes
     }
 }

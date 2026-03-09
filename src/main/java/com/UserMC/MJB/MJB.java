@@ -30,6 +30,7 @@ public class MJB extends JavaPlugin {
             return;
         }
         databaseManager.createTables();
+        databaseManager.startKeepAlive();
 
         // 2. Managers — must come before any listener registration
         cashItemManager = new CashItemManager(this);
