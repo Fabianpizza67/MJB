@@ -72,11 +72,20 @@ public class TerminalListener implements Listener {
             return;
         }
 
-        boolean success = plugin.getEconomyManager().transferBank(
-                cardOwner,
-                data.ownerUuid,
-                data.currentPrice
-        );
+        String terminalRegion = plugin.getPlotManager().getRegionAtLocation(loc);
+        boolean success;
+        if (terminalRegion != null) {
+            int companyId = plugin.getCompanyManager().getCompanyForPlot(terminalRegion, loc.getWorld().getName());
+            if (companyId != -1) {
+                // Pay into company bank
+                success = plugin.getCompanyManager().payFromPlayerToCompany(cardOwner, companyId, data.currentPrice);
+            } else {
+                // Pay to terminal owner's personal bank
+                success = plugin.getEconomyManager().transferBank(cardOwner, data.ownerUuid, data.currentPrice);
+            }
+        } else {
+            success = plugin.getEconomyManager().transferBank(cardOwner, data.ownerUuid, data.currentPrice);
+        }
 
         if (success) {
             player.sendMessage("§b§m-----------------------------");

@@ -167,6 +167,55 @@ public class DatabaseManager {
                             "player_uuid VARCHAR(36) PRIMARY KEY" +
                             ")"
             );
+            // ---- Add these 4 table creates inside createTables(), after the cancelled_cards table ----
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS companies (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "name VARCHAR(64) NOT NULL UNIQUE," +
+                            "type VARCHAR(32) NOT NULL," +
+                            "description TEXT," +
+                            "owner_uuid VARCHAR(36) NOT NULL," +
+                            "bank_balance DOUBLE NOT NULL DEFAULT 0," +
+                            "is_bankrupt BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS company_members (" +
+                            "company_id INT NOT NULL," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "role_name VARCHAR(32) NOT NULL DEFAULT 'employee'," +
+                            "salary DOUBLE NOT NULL DEFAULT 0," +
+                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (company_id, player_uuid)," +
+                            "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS company_roles (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "company_id INT NOT NULL," +
+                            "role_name VARCHAR(32) NOT NULL," +
+                            "can_hire_fire BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "can_set_prices BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "can_access_bank BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "UNIQUE KEY role_per_company (company_id, role_name)," +
+                            "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS company_plots (" +
+                            "region_id VARCHAR(64) NOT NULL," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "company_id INT NOT NULL," +
+                            "PRIMARY KEY (region_id, world)," +
+                            "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE" +
+                            ")"
+            );
 
             plugin.getLogger().info("Database tables created/verified.");
         } catch (SQLException e) {

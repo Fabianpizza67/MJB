@@ -59,10 +59,10 @@ public class ComputerListener implements Listener {
 
     private void openMainMenu(Player player) {
         Inventory gui = plugin.getServer().createInventory(null, 9, MAIN_GUI_TITLE);
-
-        gui.setItem(2, createGuiItem(Material.CHEST, "§f§lSupply Orders", "§7Order stock for your business."));
-        gui.setItem(4, createGuiItem(Material.PAPER, "§f§lMy Orders", "§7View your pending & ready orders.", "§7Authorize others to pick up for you."));
-        gui.setItem(6, createGuiItem(Material.BARRIER, "§4Close", "§7Close the computer."));
+        gui.setItem(0, createGuiItem(Material.GOLD_BLOCK, "§f§lMy Company", "§7Manage your business.", "§7Hire employees, set salaries, manage bank."));
+        gui.setItem(1, createGuiItem(Material.CHEST, "§f§lSupply Orders", "§7Order stock for your business."));
+        gui.setItem(2, createGuiItem(Material.PAPER, "§f§lMy Orders", "§7View your pending & ready orders.", "§7Authorize others to pick up for you."));
+        gui.setItem(8, createGuiItem(Material.BARRIER, "§4Close", "§7Close the computer."));
 
         player.openInventory(gui);
     }
@@ -239,6 +239,9 @@ public class ComputerListener implements Listener {
         if (title.equals(MAIN_GUI_TITLE)) {
             if (clicked.getType() == Material.CHEST) openOrderMenu(player);
             else if (clicked.getType() == Material.PAPER) openMyOrdersMenu(player);
+            else if (clicked.getType() == Material.GOLD_BLOCK) {
+                plugin.getCompanyComputerListener().openCompanyMenu(player);
+            }
             else if (clicked.getType() == Material.BARRIER) player.closeInventory();
             return;
         }

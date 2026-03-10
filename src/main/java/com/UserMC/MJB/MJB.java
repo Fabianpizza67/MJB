@@ -16,6 +16,8 @@ public class MJB extends JavaPlugin {
     private DebitCardManager debitCardManager;
     private TerminalManager terminalManager;
     private SupplyOrderManager supplyOrderManager;
+    private CompanyManager companyManager;
+    private CompanyComputerListener companyComputerListener;
 
     @Override
     public void onEnable() {
@@ -40,6 +42,9 @@ public class MJB extends JavaPlugin {
         terminalManager = new TerminalManager(this);
         supplyOrderManager = new SupplyOrderManager(this);
         bankNPCListener = new BankNPCListener(this);
+        companyManager = new CompanyManager(this);
+        companyComputerListener = new CompanyComputerListener(this);
+        companyManager.startSalaryScheduler();
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -51,6 +56,8 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ComputerListener(this), this);
         getServer().getPluginManager().registerEvents(new ComputerPlaceListener(this), this);
         getServer().getPluginManager().registerEvents(new PickupNPCListener(this), this);
+        getServer().getPluginManager().registerEvents(new GovernmentNPCListener(this), this);
+        getServer().getPluginManager().registerEvents(companyComputerListener, this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -92,4 +99,6 @@ public class MJB extends JavaPlugin {
     public DebitCardManager getDebitCardManager() { return debitCardManager; }
     public TerminalManager getTerminalManager() { return terminalManager; }
     public SupplyOrderManager getSupplyOrderManager() { return supplyOrderManager; }
+    public CompanyManager getCompanyManager() { return companyManager; }
+    public CompanyComputerListener getCompanyComputerListener() { return companyComputerListener; }
 }

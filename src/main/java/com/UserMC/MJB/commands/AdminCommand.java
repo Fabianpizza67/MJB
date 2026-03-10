@@ -1,7 +1,9 @@
 package com.UserMC.MJB.commands;
 
+import com.UserMC.MJB.CompanyManager;
 import com.UserMC.MJB.MJB;
 import com.UserMC.MJB.listeners.BankNPCListener;
+import com.UserMC.MJB.listeners.GovernmentNPCListener;
 import com.UserMC.MJB.listeners.HousingNPCListener;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
@@ -11,7 +13,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.Material;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -87,7 +88,11 @@ public class AdminCommand implements CommandExecutor {
                         npc.data().setPersistent(HousingNPCListener.HOUSING_NPC_TAG, true);
                         player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a housing office NPC!");
                     }
-                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing");
+                    case "government" -> {
+                        npc.data().setPersistent(GovernmentNPCListener.GOV_NPC_TAG, true);
+                        player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a government office NPC!");
+                    }
+                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government");
                 }
             }
 
@@ -262,6 +267,27 @@ public class AdminCommand implements CommandExecutor {
                     player.sendMessage("§4Failed to register supply item.");
                 }
             }
+            case "assigncompanyplot" -> {
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin assigncompanyplot <company_name> <regionId>");
+                    return true;
+                }
+                CompanyManager.CompanyInfo info = MJB.getInstance().getCompanyManager().getCompanyByName(args[1]);
+                if (info == null) {
+                    player.sendMessage("§4Company not found.");
+                    return true;
+                }
+                boolean ok = MJB.getInstance().getCompanyManager().assignPlotToCompany(info.id, args[2].toLowerCase(), player.getWorld().getName());
+                player.sendMessage(ok ? "§fPlot §b" + args[2] + " §fassigned to §b" + info.name + "§f." : "§4Failed.");
+            }
+            case "removecompanyplot" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin removecompanyplot <regionId>");
+                    return true;
+                }
+                MJB.getInstance().getCompanyManager().removePlotFromCompany(args[1].toLowerCase(), player.getWorld().getName());
+                player.sendMessage("§fCompany plot §b" + args[1] + " §fremoved.");
+            }
 
             default -> sendHelp(player);
         }
@@ -290,7 +316,7 @@ public class AdminCommand implements CommandExecutor {
 
     private void sendHelp(Player player) {
         player.sendMessage("§b§l--- MJB Admin Commands ---");
-        player.sendMessage("§f/mjbadmin setnpc <id> <type> §7- Set NPC type (bankteller, housing)");
+        player.sendMessage("§f/mjbadmin setnpc <id> <type> §7- Set NPC type (bankteller, housing, government)");
         player.sendMessage("§f/mjbadmin setbankteller <id> §7- Mark NPC as bank teller");
         player.sendMessage("§f/mjbadmin removebankteller <id> §7- Unmark bank teller NPC");
         player.sendMessage("§f/mjbadmin listbanktellers §7- List all bank teller NPCs");
@@ -301,5 +327,7 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin removestarterapt <region> §7- Remove region from starter pool");
         player.sendMessage("§f/mjbadmin liststarterapts §7- List available starter apartments");
         player.sendMessage("§f/mjbadmin unclaimstarter <region> §7- Unclaim a starter apartment");
+        player.sendMessage("§f/mjbadmin assigncompanyplot <company> <region> §7- Assign a plot to a company");
+        player.sendMessage("§f/mjbadmin removecompanyplot <region> §7- Remove a company plot assignment");
     }
 }
