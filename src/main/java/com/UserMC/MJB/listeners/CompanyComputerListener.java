@@ -402,12 +402,27 @@ public class CompanyComputerListener implements Listener {
                     if (plugin.getCompanyManager().isMember(session.companyId, target.getUniqueId())) {
                         player.sendMessage("§4That player is already in your company."); return;
                     }
-                    plugin.getCompanyManager().addMember(session.companyId, target.getUniqueId(), "employee", 0);
+
+                    // Check target isn't already in another company
+                    if (plugin.getCompanyManager().getCompanyForPlayer(target.getUniqueId()) != null) {
+                        player.sendMessage("§4That player is already employed at another company."); return;
+                    }
+
+                    // Store pending invite in-memory
+                    plugin.getCompanyManager().sendInvite(session.companyId, player.getUniqueId(), target.getUniqueId());
+
                     CompanyInfo info = plugin.getCompanyManager().getCompanyById(session.companyId);
-                    player.sendMessage("§b" + target.getName() + " §fhas been hired as an employee.");
-                    target.sendMessage("§b§l[Company] §b" + player.getName() + " §fhas hired you at §b" +
-                            (info != null ? info.name : "a company") + "§f!");
+                    player.sendMessage("§fInvite sent to §b" + target.getName() + "§f.");
+                    target.sendMessage("§b§m-----------------------------");
+                    target.sendMessage("§b§l  Job Offer!");
+                    target.sendMessage("§b§m-----------------------------");
+                    target.sendMessage("§b" + player.getName() + " §fhas offered you a job at §b" +
+                            (info != null ? info.name : "a company") + "§f.");
+                    target.sendMessage("§7Type §f/acceptjob §7or §f/declinejob §7to respond.");
+                    target.sendMessage("§7This offer expires in §f5 minutes§7.");
+                    target.sendMessage("§b§m-----------------------------");
                 }
+
 
                 case SET_SALARY -> {
                     double salary;

@@ -5,6 +5,7 @@ import com.UserMC.MJB.MJB;
 import com.UserMC.MJB.listeners.BankNPCListener;
 import com.UserMC.MJB.listeners.GovernmentNPCListener;
 import com.UserMC.MJB.listeners.HousingNPCListener;
+import com.UserMC.MJB.listeners.RealEstateNPCListener;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Bukkit;
@@ -92,7 +93,11 @@ public class AdminCommand implements CommandExecutor {
                         npc.data().setPersistent(GovernmentNPCListener.GOV_NPC_TAG, true);
                         player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a government office NPC!");
                     }
-                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government");
+                    case "realestate" -> {
+                        npc.data().setPersistent(RealEstateNPCListener.REALESTATE_NPC_TAG, true);
+                        player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a real estate NPC!");
+                    }
+                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate");
                 }
             }
 
@@ -288,6 +293,37 @@ public class AdminCommand implements CommandExecutor {
                 MJB.getInstance().getCompanyManager().removePlotFromCompany(args[1].toLowerCase(), player.getWorld().getName());
                 player.sendMessage("§fCompany plot §b" + args[1] + " §fremoved.");
             }
+            case "listproperty" -> {
+                // /mjbadmin listproperty <regionId> <plotType> <district> <price>
+                if (args.length < 5) {
+                    player.sendMessage("§4Usage: /mjbadmin listproperty <region> <type> <district> <price>");
+                    player.sendMessage("§7Types: apartment, house, store");
+                    return true;
+                }
+                double price;
+                try { price = Double.parseDouble(args[4]); }
+                catch (NumberFormatException e) { player.sendMessage("§4Invalid price."); return true; }
+
+                boolean ok = MJB.getInstance().getPropertyManager()
+                        .registerListing(args[1].toLowerCase(), player.getWorld().getName(),
+                                args[2].toLowerCase(), args[3].toLowerCase(), price);
+                player.sendMessage(ok
+                        ? "§fProperty §b" + args[1] + " §flisted for §b" + MJB.getInstance().getEconomyManager().format(price) + "§f."
+                        : "§4Failed — region may not exist in WorldGuard.");
+            }
+
+            case "unlistproperty" -> {
+                // /mjbadmin unlistproperty <regionId>
+                if (args.length < 2) { player.sendMessage("§4Usage: /mjbadmin unlistproperty <region>"); return true; }
+                MJB.getInstance().getPropertyManager()
+                        .unregisterListing(args[1].toLowerCase(), player.getWorld().getName());
+                player.sendMessage("§fListing §b" + args[1] + " §fremoved.");
+            }
+
+            case "treasury" -> {
+                double bal = MJB.getInstance().getPropertyManager().getTreasuryBalance();
+                player.sendMessage("§b§lCity Treasury: §f" + MJB.getInstance().getEconomyManager().format(bal));
+            }
 
             default -> sendHelp(player);
         }
@@ -329,5 +365,8 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin unclaimstarter <region> §7- Unclaim a starter apartment");
         player.sendMessage("§f/mjbadmin assigncompanyplot <company> <region> §7- Assign a plot to a company");
         player.sendMessage("§f/mjbadmin removecompanyplot <region> §7- Remove a company plot assignment");
+        player.sendMessage("§f/mjbadmin listproperty <region> <type> <district> <price> §7- List a property for sale");
+        player.sendMessage("§f/mjbadmin unlistproperty <region> §7- Remove a property listing");
+        player.sendMessage("§f/mjbadmin treasury §7- Check city treasury balance");
     }
 }

@@ -65,7 +65,8 @@ public class DatabaseManager {
                             "cash_balance DOUBLE NOT NULL DEFAULT 0," +
                             "wanted_level INT NOT NULL DEFAULT 0," +
                             "has_claimed_starter BOOLEAN NOT NULL DEFAULT FALSE," +
-                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "card_version INT NOT NULL DEFAULT 1" +
                             ")"
             );
 
@@ -178,7 +179,8 @@ public class DatabaseManager {
                             "owner_uuid VARCHAR(36) NOT NULL," +
                             "bank_balance DOUBLE NOT NULL DEFAULT 0," +
                             "is_bankrupt BOOLEAN NOT NULL DEFAULT FALSE," +
-                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "company_id INT DEFAULT NULL" +
                             ")"
             );
 
@@ -216,6 +218,29 @@ public class DatabaseManager {
                             "FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE" +
                             ")"
             );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS property_listings (" +
+                            "region_id VARCHAR(64) NOT NULL," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "plot_type VARCHAR(32) NOT NULL," +
+                            "district VARCHAR(64) NOT NULL DEFAULT 'unknown'," +
+                            "price DOUBLE NOT NULL," +
+                            "is_available BOOLEAN NOT NULL DEFAULT TRUE," +
+                            "listed_by VARCHAR(36) DEFAULT NULL," + // NULL = city listing
+                            "listed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (region_id, world)" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS city_treasury (" +
+                            "id INT PRIMARY KEY DEFAULT 1," +
+                            "balance DOUBLE NOT NULL DEFAULT 0" +
+                            ")"
+            );
+
+// Seed treasury row if not exists
+            stmt.execute("INSERT IGNORE INTO city_treasury (id, balance) VALUES (1, 0)");
 
             plugin.getLogger().info("Database tables created/verified.");
         } catch (SQLException e) {

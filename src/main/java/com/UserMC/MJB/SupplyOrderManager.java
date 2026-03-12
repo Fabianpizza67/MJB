@@ -92,14 +92,15 @@ public class SupplyOrderManager {
 
     // ---- Orders ----
 
-    public int placeOrder(UUID ownerUuid, String district, List<OrderLine> lines) {
+    public int placeOrder(UUID ownerUuid, int companyId, String district, List<OrderLine> lines) {
         double totalCost = lines.stream().mapToDouble(l -> l.quantity * l.pricePerItem).sum();
 
-        String sql = "INSERT INTO supply_orders (owner_uuid, district, total_cost) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO supply_orders (owner_uuid, company_id, district, total_cost) VALUES (?, ?, ?, ?)";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, ownerUuid.toString());
-            stmt.setString(2, district);
-            stmt.setDouble(3, totalCost);
+            stmt.setObject(2, companyId == -1 ? null : companyId);
+            stmt.setString(3, district);
+            stmt.setDouble(4, totalCost);
             stmt.executeUpdate();
 
             ResultSet keys = stmt.getGeneratedKeys();

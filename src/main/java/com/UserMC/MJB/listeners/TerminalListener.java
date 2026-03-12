@@ -58,8 +58,8 @@ public class TerminalListener implements Listener {
         }
 
         // Check if card is cancelled
-        if (plugin.getDebitCardManager().isCardCancelled(held)) {
-            player.sendMessage("§4This card has been cancelled and cannot be used.");
+        if (!plugin.getDebitCardManager().isCardValid(held)) {
+            player.sendMessage("§4This card is invalid or has been cancelled.");
             return;
         }
 

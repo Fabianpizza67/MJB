@@ -1,5 +1,6 @@
 package com.UserMC.MJB.listeners;
 
+import com.UserMC.MJB.CompanyManager;
 import com.UserMC.MJB.MJB;
 import com.UserMC.MJB.SupplyOrderManager.*;
 import org.bukkit.Material;
@@ -15,6 +16,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.NamespacedKey;
 import org.bukkit.persistence.PersistentDataType;
+import com.UserMC.MJB.listeners.RealEstateNPCListener;
 
 import java.util.*;
 
@@ -62,6 +64,9 @@ public class ComputerListener implements Listener {
         gui.setItem(0, createGuiItem(Material.GOLD_BLOCK, "§f§lMy Company", "§7Manage your business.", "§7Hire employees, set salaries, manage bank."));
         gui.setItem(1, createGuiItem(Material.CHEST, "§f§lSupply Orders", "§7Order stock for your business."));
         gui.setItem(2, createGuiItem(Material.PAPER, "§f§lMy Orders", "§7View your pending & ready orders.", "§7Authorize others to pick up for you."));
+        gui.setItem(3, createGuiItem(Material.OAK_DOOR, "§f§lProperties",
+                "§7Browse and buy properties.",
+                "§7List your own property for resale."));
         gui.setItem(8, createGuiItem(Material.BARRIER, "§4Close", "§7Close the computer."));
 
         player.openInventory(gui);
@@ -115,11 +120,17 @@ public class ComputerListener implements Listener {
             ));
         }
 
+        // Show whether this order charges the company or personal bank
+        CompanyManager.CompanyInfo company = plugin.getCompanyManager().getCompanyForPlayer(player.getUniqueId());
+        String paymentSource = company != null
+                ? "§7Charged to: §bCompany bank §7(" + company.name + ")"
+                : "§7Charged to: §fPersonal bank";
+
         double finalTotal = total;
         gui.setItem(45, createGuiItem(Material.ARROW, "§fBack", "§7Return to order menu."));
         gui.setItem(49, createGuiItem(Material.EMERALD, "§a§lConfirm Order",
                 "§7Total: §f" + plugin.getEconomyManager().format(finalTotal),
-                "§7Funds deducted from your bank.",
+                paymentSource,
                 "",
                 "§eClick to place order!"));
         gui.setItem(53, createGuiItem(Material.BARRIER, "§4Clear Cart", "§7Remove all items from cart."));
@@ -241,6 +252,9 @@ public class ComputerListener implements Listener {
             else if (clicked.getType() == Material.PAPER) openMyOrdersMenu(player);
             else if (clicked.getType() == Material.GOLD_BLOCK) {
                 plugin.getCompanyComputerListener().openCompanyMenu(player);
+            }
+            else if (clicked.getType() == Material.OAK_DOOR) {
+                plugin.getRealEstateNPCListener().openBrowseMenuPublic(player);
             }
             else if (clicked.getType() == Material.BARRIER) player.closeInventory();
             return;
@@ -380,33 +394,65 @@ public class ComputerListener implements Listener {
 
     private void handleConfirmOrder(Player player) {
         List<OrderLine> cart = playerCart.getOrDefault(player.getUniqueId(), new ArrayList<>());
+
         if (cart.isEmpty()) {
             player.sendMessage("§4Your cart is empty!");
             return;
         }
 
         double total = cart.stream().mapToDouble(l -> l.quantity * l.pricePerItem).sum();
-        double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
 
-        if (balance < total) {
-            player.sendMessage("§4Insufficient bank balance!");
-            player.sendMessage("§7Total: §f" + plugin.getEconomyManager().format(total));
-            player.sendMessage("§7Your balance: §f" + plugin.getEconomyManager().format(balance));
-            return;
-        }
+        // Check if player is in a company — if so, charge the company bank
+        CompanyManager.CompanyInfo company = plugin.getCompanyManager().getCompanyForPlayer(player.getUniqueId());
+        boolean usingCompanyBank = company != null;
 
-        String sql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
-        try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setDouble(1, total);
-            stmt.setString(2, player.getUniqueId().toString());
-            stmt.executeUpdate();
-        } catch (java.sql.SQLException e) {
-            player.sendMessage("§4Payment failed. Please try again.");
-            return;
+        if (usingCompanyBank) {
+            if (company.isBankrupt) {
+                player.sendMessage("§4Your company is bankrupt and cannot place orders.");
+                player.sendMessage("§7Deposit funds into the company account first.");
+                return;
+            }
+            if (company.bankBalance < total) {
+                player.sendMessage("§4Insufficient company bank balance!");
+                player.sendMessage("§7Total: §f" + plugin.getEconomyManager().format(total));
+                player.sendMessage("§7Company balance: §f" + plugin.getEconomyManager().format(company.bankBalance));
+                return;
+            }
+            String sql = "UPDATE companies SET bank_balance = bank_balance - ? WHERE id = ?";
+            try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+                stmt.setDouble(1, total);
+                stmt.setInt(2, company.id);
+                stmt.executeUpdate();
+            } catch (java.sql.SQLException e) {
+                player.sendMessage("§4Payment failed. Please try again.");
+                return;
+            }
+        } else {
+            double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
+            if (balance < total) {
+                player.sendMessage("§4Insufficient bank balance!");
+                player.sendMessage("§7Total: §f" + plugin.getEconomyManager().format(total));
+                player.sendMessage("§7Your balance: §f" + plugin.getEconomyManager().format(balance));
+                return;
+            }
+            String sql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
+            try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+                stmt.setDouble(1, total);
+                stmt.setString(2, player.getUniqueId().toString());
+                stmt.executeUpdate();
+            } catch (java.sql.SQLException e) {
+                player.sendMessage("§4Payment failed. Please try again.");
+                return;
+            }
         }
 
         String district = playerDistrict.getOrDefault(player.getUniqueId(), "central");
-        int orderId = plugin.getSupplyOrderManager().placeOrder(player.getUniqueId(), district, cart);
+        int orderId = plugin.getSupplyOrderManager().placeOrder(
+                player.getUniqueId(),
+                usingCompanyBank ? company.id : -1,
+                district,
+                cart
+        );
 
         if (orderId == -1) {
             player.sendMessage("§4Failed to place order. Please try again.");
@@ -419,7 +465,8 @@ public class ComputerListener implements Listener {
         player.sendMessage("§b§l  Order Placed!");
         player.sendMessage("§b§m-----------------------------");
         player.sendMessage("§fOrder §b#" + orderId + " §fhas been placed.");
-        player.sendMessage("§7Total charged: §f" + plugin.getEconomyManager().format(total));
+        player.sendMessage("§7Total charged: §f" + plugin.getEconomyManager().format(total) +
+                (usingCompanyBank ? " §7(company bank)" : " §7(personal bank)"));
         player.sendMessage("§7You will be notified when it's ready.");
         player.sendMessage("§7Go to §fMy Orders §7to authorize others to pick it up.");
         player.sendMessage("§b§m-----------------------------");

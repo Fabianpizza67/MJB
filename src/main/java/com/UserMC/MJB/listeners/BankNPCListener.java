@@ -38,7 +38,7 @@ public class BankNPCListener implements Listener {
         player.sendMessage("§b§m-----------------------------");
         player.sendMessage("§7Use §f/deposit <amount> §7or §f/withdraw <amount>");
 
-        if (!plugin.getDebitCardManager().playerHasCard(player)) {
+        if (!plugin.getDebitCardManager().playerHasValidCard(player)) {
             player.sendMessage("§7Buy a debit card: §f/buycard");
         }
 

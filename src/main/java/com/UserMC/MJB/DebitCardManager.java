@@ -18,15 +18,21 @@ public class DebitCardManager {
     private final MJB plugin;
     public final NamespacedKey CARD_KEY;
     public final NamespacedKey CARD_OWNER_KEY;
+    public final NamespacedKey CARD_VERSION_KEY;
     public static final double CARD_PRICE = 25.0;
 
     public DebitCardManager(MJB plugin) {
         this.plugin = plugin;
         this.CARD_KEY = new NamespacedKey(plugin, "debit_card");
         this.CARD_OWNER_KEY = new NamespacedKey(plugin, "debit_card_owner");
+        this.CARD_VERSION_KEY = new NamespacedKey(plugin, "debit_card_version");
     }
 
-    public ItemStack createDebitCard(Player player) {
+    /**
+     * Creates a debit card item with the given version number baked in.
+     * Version is used to invalidate old physical cards when a new one is issued.
+     */
+    public ItemStack createDebitCard(Player player, int version) {
         ItemStack card = new ItemStack(Material.PAPER);
         ItemMeta meta = card.getItemMeta();
         meta.setDisplayName("§b§lDebit Card");
@@ -37,6 +43,7 @@ public class DebitCardManager {
         ));
         meta.getPersistentDataContainer().set(CARD_KEY, PersistentDataType.BOOLEAN, true);
         meta.getPersistentDataContainer().set(CARD_OWNER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
+        meta.getPersistentDataContainer().set(CARD_VERSION_KEY, PersistentDataType.INTEGER, version);
         card.setItemMeta(meta);
         return card;
     }
@@ -54,12 +61,54 @@ public class DebitCardManager {
         return UUID.fromString(uuidStr);
     }
 
-    // Checks the DATABASE — works even if the card was stolen
-    public boolean isCardCancelled(ItemStack item) {
+    public int getCardVersion(ItemStack item) {
+        if (!isDebitCard(item)) return -1;
+        Integer version = item.getItemMeta().getPersistentDataContainer()
+                .get(CARD_VERSION_KEY, PersistentDataType.INTEGER);
+        return version != null ? version : 0;
+    }
+
+    // ---- Version management ----
+
+    public int incrementCardVersion(UUID uuid) {
+        String sql = "UPDATE players SET card_version = card_version + 1 WHERE uuid = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setString(1, uuid.toString());
+            stmt.executeUpdate();
+            return getCurrentCardVersion(uuid);
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error incrementing card version: " + e.getMessage());
+            return -1;
+        }
+    }
+
+    public int getCurrentCardVersion(UUID uuid) {
+        String sql = "SELECT card_version FROM players WHERE uuid = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setString(1, uuid.toString());
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getInt("card_version");
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error getting card version: " + e.getMessage());
+        }
+        return 0;
+    }
+
+    public boolean isCardValid(ItemStack item) {
+        if (!isDebitCard(item)) return false;
         UUID owner = getCardOwner(item);
         if (owner == null) return false;
-        return isUUIDCancelled(owner);
+
+        // Check version
+        int itemVersion = getCardVersion(item);
+        int currentVersion = getCurrentCardVersion(owner);
+        if (itemVersion != currentVersion) return false;
+
+        // Check cancellation
+        return !isUUIDCancelled(owner);
     }
+
+    // ---- Cancellation ----
 
     public boolean isUUIDCancelled(UUID uuid) {
         String sql = "SELECT 1 FROM cancelled_cards WHERE player_uuid = ?";
@@ -73,7 +122,6 @@ public class DebitCardManager {
         }
     }
 
-    // Cancel by UUID — no physical card needed
     public boolean cancelCard(UUID uuid) {
         String sql = "INSERT IGNORE INTO cancelled_cards (player_uuid) VALUES (?)";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
@@ -86,27 +134,25 @@ public class DebitCardManager {
         }
     }
 
-    // Re-activate when player buys a new card
-    public boolean reinstateCard(UUID uuid) {
+    public boolean clearCancellation(UUID uuid) {
         String sql = "DELETE FROM cancelled_cards WHERE player_uuid = ?";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
             stmt.setString(1, uuid.toString());
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error reinstating card: " + e.getMessage());
+            plugin.getLogger().severe("Error clearing cancellation: " + e.getMessage());
             return false;
         }
     }
 
-    public boolean playerHasCard(Player player) {
+    public boolean playerHasValidCard(Player player) {
         for (ItemStack item : player.getInventory().getContents()) {
             if (item == null) continue;
-            if (isDebitCard(item)) {
-                UUID owner = getCardOwner(item);
-                // Only count cards that belong to this player and aren't cancelled
-                if (owner != null && owner.equals(player.getUniqueId()) && !isUUIDCancelled(owner)) return true;
-            }
+            if (!isDebitCard(item)) continue;
+            UUID owner = getCardOwner(item);
+            if (owner == null || !owner.equals(player.getUniqueId())) continue;
+            if (isCardValid(item)) return true;
         }
         return false;
     }

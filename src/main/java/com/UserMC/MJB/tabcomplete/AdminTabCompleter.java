@@ -18,7 +18,7 @@ public class AdminTabCompleter implements TabCompleter {
             "setnpc", "setbankteller", "removebankteller", "listbanktellers",
             "assignplot", "removeplot", "addmember",
             "addstarterapt", "removestarterapt", "liststarterapts", "unclaimstarter",
-            "addcomputer", "setpickupnpc", "addsupplyitem"
+            "addcomputer", "setpickupnpc", "addsupplyitem", "listproperty", "unlistproperty", "treasury"
     );
 
     private static final List<String> NPC_TYPES = Arrays.asList("bankteller", "housing");

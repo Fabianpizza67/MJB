@@ -4,18 +4,21 @@ import org.bukkit.entity.Player;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
 
 public class CompanyManager {
 
     private final MJB plugin;
 
-    public static final double REGISTRATION_FEE = 500.0;
+    public static final double REGISTRATION_FEE = 0.0;
 
     public CompanyManager(MJB plugin) {
         this.plugin = plugin;
     }
+    private final Map<UUID, CompanyInvite> pendingInvites = new HashMap<>();
 
     // ---- Company Registration ----
 
@@ -675,4 +678,36 @@ public class CompanyManager {
             this.canAccessBank = canAccessBank;
         }
     }
+    public void sendInvite(int companyId, UUID inviterUuid, UUID targetUuid) {
+        pendingInvites.put(targetUuid, new CompanyInvite(companyId, inviterUuid,
+                System.currentTimeMillis() + 5 * 60 * 1000L));
+    }
+
+    public CompanyInvite getInvite(UUID targetUuid) {
+        CompanyInvite invite = pendingInvites.get(targetUuid);
+        if (invite == null) return null;
+        if (System.currentTimeMillis() > invite.expiresAt) {
+            pendingInvites.remove(targetUuid);
+            return null;
+        }
+        return invite;
+    }
+
+    public void removeInvite(UUID targetUuid) {
+        pendingInvites.remove(targetUuid);
+    }
+
+    // Add inner class:
+    public static class CompanyInvite {
+        public final int companyId;
+        public final UUID inviterUuid;
+        public final long expiresAt;
+
+        public CompanyInvite(int companyId, UUID inviterUuid, long expiresAt) {
+            this.companyId = companyId;
+            this.inviterUuid = inviterUuid;
+            this.expiresAt = expiresAt;
+        }
+    }
+
 }

@@ -34,6 +34,12 @@ commands:
   cancelcard:
     description: Cancel your debit card at the bank
     usage: /cancelcard
+  acceptjob:
+    description: Accept a pending job offer
+    usage: /acceptjob
+  declinejob:
+    description: Decline a pending job offer
+    usage: /declinejob`
 
 
 permissions:
