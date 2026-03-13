@@ -73,7 +73,19 @@ public class ComputerListener implements Listener {
     }
 
     private void openOrderMenu(Player player) {
-        String license = "baker"; // TODO: hook into license system
+           List<com.UserMC.MJB.LicenseManager.PlayerLicense> playerLicenses =
+           plugin.getLicenseManager().getPlayerLicenses(player.getUniqueId());
+       String license = playerLicenses.stream()
+           .filter(l -> !l.isRevoked && plugin.getLicenseManager().hasActiveLicense(player.getUniqueId(), l.licenseType))
+           .map(l -> l.licenseType)
+           .findFirst()
+           .orElse(null);
+       if (license == null) {
+           player.sendMessage("§4You need a license to place supply orders.");
+           player.sendMessage("§7Visit the §fGovernment Office §7to get one.");
+           player.closeInventory();
+           return;
+       }
 
         List<SupplyItem> items = plugin.getSupplyOrderManager().getAvailableItems(license);
         Inventory gui = plugin.getServer().createInventory(null, 54, ORDER_GUI_TITLE);

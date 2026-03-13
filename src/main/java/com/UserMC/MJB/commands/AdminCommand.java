@@ -325,6 +325,59 @@ public class AdminCommand implements CommandExecutor {
                 player.sendMessage("§b§lCity Treasury: §f" + MJB.getInstance().getEconomyManager().format(bal));
             }
 
+            case "issuelicense" -> {
+                // /mjbadmin issuelicense <player> <license_type>
+                if (args.length != 3) { player.sendMessage("§4Usage: /mjbadmin issuelicense <player> <license_type>"); return true; }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                // Admin bypass — issue without cost check
+                String sql = "INSERT INTO licenses (player_uuid, license_type, expires_at) " +
+                        "VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 30 DAY)) " +
+                        "ON DUPLICATE KEY UPDATE expires_at = DATE_ADD(NOW(), INTERVAL 30 DAY), is_revoked = FALSE, revoked_by = NULL";
+                try (java.sql.PreparedStatement stmt2 = MJB.getInstance().getDatabaseManager().getConnection().prepareStatement(sql)) {
+                    stmt2.setString(1, target.getUniqueId().toString());
+                    stmt2.setString(2, args[2].toLowerCase());
+                    stmt2.executeUpdate();
+                    player.sendMessage("§fIssued §b" + args[2] + " §flicense to §b" + target.getName() + "§f.");
+                    target.sendMessage("§b§l[License] §fAn admin has issued you the §b" + args[2] + " §flicense.");
+                } catch (java.sql.SQLException e) {
+                    player.sendMessage("§4Failed — check that the license type exists.");
+                }
+            }
+
+            case "revokelicense" -> {
+                // /mjbadmin revokelicense <player> <license_type>
+                if (args.length != 3) { player.sendMessage("§4Usage: /mjbadmin revokelicense <player> <license_type>"); return true; }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                boolean ok = MJB.getInstance().getLicenseManager().revokeLicense(
+                        target.getUniqueId(), args[2].toLowerCase(), player.getUniqueId());
+                if (ok) {
+                    player.sendMessage("§fRevoked §b" + args[2] + " §flicense from §b" + target.getName() + "§f.");
+                    target.sendMessage("§4§l[License] §4Your §f" + args[2] + " §4license has been revoked by an admin.");
+                } else {
+                    player.sendMessage("§4Failed to revoke — player may not have that license.");
+                }
+            }
+
+            case "addlicensetype" -> {
+                // /mjbadmin addlicensetype <type_name> <display_name> <cost> <renewal_cost> <description...>
+                if (args.length < 6) {
+                    player.sendMessage("§4Usage: /mjbadmin addlicensetype <type_name> <display_name> <cost> <renewal_cost> <description>");
+                    return true;
+                }
+                double cost, renewal;
+                try { cost = Double.parseDouble(args[3]); renewal = Double.parseDouble(args[4]); }
+                catch (NumberFormatException e) { player.sendMessage("§4Invalid cost or renewal cost."); return true; }
+                // Join remaining args as description
+                StringBuilder desc = new StringBuilder();
+                for (int i = 5; i < args.length; i++) desc.append(args[i]).append(" ");
+                boolean ok = MJB.getInstance().getLicenseManager().registerLicenseType(
+                        args[1].toLowerCase(), args[2], cost, renewal, desc.toString().trim());
+                player.sendMessage(ok ? "§fLicense type §b" + args[1] + " §fregistered." : "§4Failed.");
+            }
+
+
             default -> sendHelp(player);
         }
 
@@ -368,5 +421,8 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin listproperty <region> <type> <district> <price> §7- List a property for sale");
         player.sendMessage("§f/mjbadmin unlistproperty <region> §7- Remove a property listing");
         player.sendMessage("§f/mjbadmin treasury §7- Check city treasury balance");
+        player.sendMessage("§f/mjbadmin addlicensetype <type> <name> <cost> <renewal> <desc> §7- Add license type");
+        player.sendMessage("§f/mjbadmin issuelicense <player> <type> §7- Issue license to player (free, admin only)");
+        player.sendMessage("§f/mjbadmin revokelicense <player> <type> §7- Revoke a player's license");
     }
 }

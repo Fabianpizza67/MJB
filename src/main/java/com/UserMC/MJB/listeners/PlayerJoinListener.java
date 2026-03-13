@@ -19,6 +19,7 @@ public class PlayerJoinListener implements Listener {
         Player player = event.getPlayer();
         boolean isNew = plugin.getEconomyManager().isNewPlayer(player.getUniqueId());
         plugin.getEconomyManager().initPlayer(player.getUniqueId(), player.getName());
+        plugin.getLicenseManager().checkAndWarnOnLogin(player);
 
         if (isNew) {
             plugin.getCashItemManager().giveCash(player, 100.0);

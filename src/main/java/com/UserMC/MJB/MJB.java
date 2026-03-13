@@ -20,6 +20,7 @@ public class MJB extends JavaPlugin {
     private CompanyComputerListener companyComputerListener;
     private PropertyManager propertyManager;
     private RealEstateNPCListener realEstateNPCListener;
+    private LicenseManager licenseManager;
 
     @Override
     public void onEnable() {
@@ -49,6 +50,7 @@ public class MJB extends JavaPlugin {
         companyManager.startSalaryScheduler();
         propertyManager = new PropertyManager(this);
         realEstateNPCListener = new RealEstateNPCListener(this);
+        licenseManager = new LicenseManager(this);
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -113,5 +115,6 @@ public class MJB extends JavaPlugin {
     public CompanyComputerListener getCompanyComputerListener() { return companyComputerListener; }
     public PropertyManager getPropertyManager() { return propertyManager; }
     public RealEstateNPCListener getRealEstateNPCListener() { return realEstateNPCListener; }
+    public LicenseManager getLicenseManager() { return licenseManager; }
 
 }

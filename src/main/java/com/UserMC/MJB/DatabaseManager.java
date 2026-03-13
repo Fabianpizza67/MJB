@@ -168,7 +168,6 @@ public class DatabaseManager {
                             "player_uuid VARCHAR(36) PRIMARY KEY" +
                             ")"
             );
-            // ---- Add these 4 table creates inside createTables(), after the cancelled_cards table ----
 
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS companies (" +
@@ -236,6 +235,30 @@ public class DatabaseManager {
                     "CREATE TABLE IF NOT EXISTS city_treasury (" +
                             "id INT PRIMARY KEY DEFAULT 1," +
                             "balance DOUBLE NOT NULL DEFAULT 0" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS license_types (" +
+                            "type_name VARCHAR(64) PRIMARY KEY," +
+                            "display_name VARCHAR(64) NOT NULL," +
+                            "cost DOUBLE NOT NULL DEFAULT 100.0," +
+                            "renewal_cost DOUBLE NOT NULL DEFAULT 50.0," +
+                            "description VARCHAR(256)" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS licenses (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "license_type VARCHAR(64) NOT NULL," +
+                            "issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "expires_at TIMESTAMP NOT NULL," +
+                            "is_revoked BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "revoked_by VARCHAR(36) DEFAULT NULL," +
+                            "UNIQUE KEY unique_player_license (player_uuid, license_type)," +
+                            "FOREIGN KEY (license_type) REFERENCES license_types(type_name) ON DELETE CASCADE" +
                             ")"
             );
 
