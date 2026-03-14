@@ -281,7 +281,7 @@ public class RealEstateNPCListener implements Listener {
         player.sendMessage("§7Your balance: §f" + plugin.getEconomyManager()
                 .format(plugin.getEconomyManager().getBankBalance(player.getUniqueId())));
         player.sendMessage("§b§m-----------------------------");
-        player.sendMessage("§eType the §fregion ID §eof your property, or §fcancel§e.");
+        player.sendMessage("§eType the §faddress §eof your property (e.g. §bMain Street 12§e), or §fcancel§e.");
         listingSessions.put(player.getUniqueId(), new ListingSession());
     }
 
@@ -303,11 +303,11 @@ public class RealEstateNPCListener implements Listener {
 
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (session.regionId == null) {
-                // Step 1: region ID
+                // Step 1: address (= WorldGuard region ID)
                 String world = player.getWorld().getName();
                 if (!plugin.getPlotManager().isPlotOwner(player.getUniqueId(), input)) {
-                    player.sendMessage("§4You don't own a plot with ID §f" + input + "§4.");
-                    player.sendMessage("§7Check the ID or type §fcancel§7.");
+                    player.sendMessage("§4You don't own a property with address §f" + input + "§4.");
+                    player.sendMessage("§7Check the address or type §fcancel§7.");
                     return;
                 }
                 if (plugin.getPropertyManager().isListed(input, world)) {
@@ -316,7 +316,7 @@ public class RealEstateNPCListener implements Listener {
                 }
                 session.regionId = input;
                 session.world = world;
-                player.sendMessage("§fRegion: §b" + input);
+                player.sendMessage("§fAddress: §b" + input);
                 player.sendMessage("§eEnter your §fasking price§e, or §fcancel§e:");
             } else {
                 // Step 2: price

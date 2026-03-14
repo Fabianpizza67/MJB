@@ -65,7 +65,6 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GovernmentNPCListener(this), this);
         getServer().getPluginManager().registerEvents(companyComputerListener, this);
         getServer().getPluginManager().registerEvents(new RealEstateNPCListener(this), this);
-        getServer().getPluginManager().registerEvents(realEstateNPCListener, this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
