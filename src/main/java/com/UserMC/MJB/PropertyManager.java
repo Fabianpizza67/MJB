@@ -73,7 +73,7 @@ public class PropertyManager {
     public static final double RESALE_LISTING_FEE = 50.0;
 
     /**
-     * Player lists their own plot for resale. Requires Real Estate license (TODO hook).
+     * Player lists their own plot for resale. Requires Real Estate license.
      * Deducts flat listing fee upfront.
      */
     public ListingResult listForResale(Player seller, String regionId, String world, double askingPrice) {
@@ -82,8 +82,10 @@ public class PropertyManager {
             return ListingResult.NOT_OWNER;
         }
 
-        // Must have Real Estate license — TODO: hook into license system
-        // if (!plugin.getLicenseManager().hasLicense(seller.getUniqueId(), "real_estate")) return ListingResult.NO_LICENSE;
+        // Must have Real Estate license
+        if (!plugin.getLicenseManager().hasActiveLicense(seller.getUniqueId(), "real_estate")) {
+            return ListingResult.NO_LICENSE;
+        }
 
         // Check balance for listing fee
         double balance = plugin.getEconomyManager().getBankBalance(seller.getUniqueId());
