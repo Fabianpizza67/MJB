@@ -66,7 +66,8 @@ public class DatabaseManager {
                             "wanted_level INT NOT NULL DEFAULT 0," +
                             "has_claimed_starter BOOLEAN NOT NULL DEFAULT FALSE," +
                             "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                            "card_version INT NOT NULL DEFAULT 1" +
+                            "card_version INT NOT NULL DEFAULT 1," +
+                            "thirst INT NOT NULL DEFAULT 20" +
                             ")"
             );
 
@@ -258,6 +259,14 @@ public class DatabaseManager {
                             "is_revoked BOOLEAN NOT NULL DEFAULT FALSE," +
                             "revoked_by VARCHAR(36) DEFAULT NULL," +
                             "UNIQUE KEY unique_player_license (player_uuid, license_type)," +
+                            "FOREIGN KEY (license_type) REFERENCES license_types(type_name) ON DELETE CASCADE" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS license_craft_rules (" +
+                            "result_material VARCHAR(64) PRIMARY KEY," +
+                            "license_type VARCHAR(64) NOT NULL," +
                             "FOREIGN KEY (license_type) REFERENCES license_types(type_name) ON DELETE CASCADE" +
                             ")"
             );

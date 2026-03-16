@@ -30,6 +30,12 @@ public class PlayerJoinListener implements Listener {
         } else {
             // Check if starter apartment should be reclaimed
             plugin.getPlotManager().reclaimStarterIfNeeded(player);
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                int thirst = plugin.getThirstManager().getThirst(player.getUniqueId());
+                if (thirst == 0) {
+                    plugin.getThirstManager().applyThirstEffects(player);
+                }
+            }, 20L);
         }
     }
 }

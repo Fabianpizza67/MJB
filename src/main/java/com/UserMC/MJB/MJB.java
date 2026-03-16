@@ -21,6 +21,9 @@ public class MJB extends JavaPlugin {
     private PropertyManager propertyManager;
     private RealEstateNPCListener realEstateNPCListener;
     private LicenseManager licenseManager;
+    private ClothingManager clothingManager;
+    private ThirstManager thirstManager;
+    private CraftingLicenseManager craftingLicenseManager;
 
     @Override
     public void onEnable() {
@@ -51,6 +54,10 @@ public class MJB extends JavaPlugin {
         propertyManager = new PropertyManager(this);
         realEstateNPCListener = new RealEstateNPCListener(this);
         licenseManager = new LicenseManager(this);
+        clothingManager = new ClothingManager(this);
+        thirstManager = new ThirstManager(this);
+        thirstManager.startDrainScheduler();
+        craftingLicenseManager = new CraftingLicenseManager(this);
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -65,6 +72,8 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GovernmentNPCListener(this), this);
         getServer().getPluginManager().registerEvents(companyComputerListener, this);
         getServer().getPluginManager().registerEvents(new RealEstateNPCListener(this), this);
+        getServer().getPluginManager().registerEvents(new ThirstListener(this), this);
+        getServer().getPluginManager().registerEvents(new CraftingLicenseListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -115,5 +124,8 @@ public class MJB extends JavaPlugin {
     public PropertyManager getPropertyManager() { return propertyManager; }
     public RealEstateNPCListener getRealEstateNPCListener() { return realEstateNPCListener; }
     public LicenseManager getLicenseManager() { return licenseManager; }
+    public ClothingManager getClothingManager() { return clothingManager; }
+    public ThirstManager getThirstManager() { return thirstManager; }
+    public CraftingLicenseManager getCraftingLicenseManager() { return craftingLicenseManager; }
 
 }

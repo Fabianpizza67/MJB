@@ -377,6 +377,46 @@ public class AdminCommand implements CommandExecutor {
                 player.sendMessage(ok ? "§fLicense type §b" + args[1] + " §fregistered." : "§4Failed.");
             }
 
+            case "addcraftrule" -> {
+                // /mjbadmin addcraftrule <license_type> <MATERIAL>
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin addcraftrule <license_type> <MATERIAL>");
+                    return true;
+                }
+                org.bukkit.Material mat;
+                try { mat = org.bukkit.Material.valueOf(args[2].toUpperCase()); }
+                catch (IllegalArgumentException e) { player.sendMessage("§4Unknown material: §f" + args[2]); return true; }
+                boolean ok = MJB.getInstance().getCraftingLicenseManager().addRule(args[1].toLowerCase(), mat);
+                player.sendMessage(ok ? "§fCraft rule added: §b" + mat.name() + " §frequires §b" + args[1] + "§f." : "§4Failed.");
+            }
+
+            case "removecraftrule" -> {
+                // /mjbadmin removecraftrule <MATERIAL>
+                if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin removecraftrule <MATERIAL>"); return true; }
+                org.bukkit.Material mat;
+                try { mat = org.bukkit.Material.valueOf(args[1].toUpperCase()); }
+                catch (IllegalArgumentException e) { player.sendMessage("§4Unknown material: §f" + args[1]); return true; }
+                boolean ok = MJB.getInstance().getCraftingLicenseManager().removeRule(mat);
+                player.sendMessage(ok ? "§fCraft rule for §b" + mat.name() + " §fremoved." : "§4Failed.");
+            }
+
+            case "listcraftrules" -> {
+                // /mjbadmin listcraftrules [license_type]
+                java.util.List<com.UserMC.MJB.CraftingLicenseManager.CraftRule> rules = args.length >= 2
+                        ? MJB.getInstance().getCraftingLicenseManager().getRulesForLicense(args[1].toLowerCase())
+                        : MJB.getInstance().getCraftingLicenseManager().getAllRules();
+                if (rules.isEmpty()) { player.sendMessage("§7No craft rules found."); return true; }
+                player.sendMessage("§b§l--- Craft Rules ---");
+                String currentLicense = null;
+                for (var rule : rules) {
+                    if (!rule.licenseType.equals(currentLicense)) {
+                        currentLicense = rule.licenseType;
+                        player.sendMessage("§b" + currentLicense + "§7:");
+                    }
+                    player.sendMessage("§7  - §f" + rule.resultMaterial);
+                }
+            }
+
 
             default -> sendHelp(player);
         }
