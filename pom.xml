@@ -9,6 +9,14 @@
     <version>1.2</version>
     <packaging>jar</packaging>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub fabianpizza67 Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/fabianpizza67/mjb</url>
+        </repository>
+    </distributionManagement>
+
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
