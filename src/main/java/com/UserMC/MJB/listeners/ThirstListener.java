@@ -2,6 +2,7 @@ package com.UserMC.MJB.listeners;
 
 import com.UserMC.MJB.MJB;
 import com.UserMC.MJB.ThirstManager.DrinkEntry;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,19 +19,26 @@ public class ThirstListener implements Listener {
 
     @EventHandler
     public void onConsume(PlayerItemConsumeEvent event) {
-
-
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
         DrinkEntry entry = plugin.getThirstManager().getDrinkEntry(item);
         if (entry == null) return;
 
-        // Cancel the vanilla glass bottle return by setting replacement to null.
-        // This is what prevents refilling — the bottle simply disappears.
+        // Suppress vanilla glass bottle return
         event.setReplacement(null);
 
-        // Process thirst restore + effects after vanilla consumption finishes
-        plugin.getServer().getScheduler().runTask(plugin, () ->
-                plugin.getThirstManager().onDrink(player, item));
+        // Schedule on next tick — item consumption finishes first, then we sweep bottles
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            // Remove all glass bottles from inventory
+            // Safe to do this universally — players can't obtain glass bottles legitimately on this server
+            for (int i = 0; i < player.getInventory().getSize(); i++) {
+                ItemStack slot = player.getInventory().getItem(i);
+                if (slot != null && slot.getType() == Material.GLASS_BOTTLE) {
+                    player.getInventory().setItem(i, null);
+                }
+            }
+
+            plugin.getThirstManager().onDrink(player, item);
+        });
     }
 }

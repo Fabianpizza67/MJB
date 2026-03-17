@@ -55,6 +55,7 @@ public class MJB extends JavaPlugin {
         realEstateNPCListener = new RealEstateNPCListener(this);
         licenseManager = new LicenseManager(this);
         clothingManager = new ClothingManager(this);
+        clothingManager.startDrainScheduler();
         thirstManager = new ThirstManager(this);
         thirstManager.startDrainScheduler();
         craftingLicenseManager = new CraftingLicenseManager(this);
@@ -71,7 +72,7 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PickupNPCListener(this), this);
         getServer().getPluginManager().registerEvents(new GovernmentNPCListener(this), this);
         getServer().getPluginManager().registerEvents(companyComputerListener, this);
-        getServer().getPluginManager().registerEvents(new RealEstateNPCListener(this), this);
+        getServer().getPluginManager().registerEvents(realEstateNPCListener, this);
         getServer().getPluginManager().registerEvents(new ThirstListener(this), this);
         getServer().getPluginManager().registerEvents(new CraftingLicenseListener(this), this);
 
