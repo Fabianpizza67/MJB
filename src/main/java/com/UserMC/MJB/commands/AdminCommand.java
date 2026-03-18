@@ -1,11 +1,9 @@
 package com.UserMC.MJB.commands;
 
 import com.UserMC.MJB.CompanyManager;
+import com.UserMC.MJB.CrimeManager;
 import com.UserMC.MJB.MJB;
-import com.UserMC.MJB.listeners.BankNPCListener;
-import com.UserMC.MJB.listeners.GovernmentNPCListener;
-import com.UserMC.MJB.listeners.HousingNPCListener;
-import com.UserMC.MJB.listeners.RealEstateNPCListener;
+import com.UserMC.MJB.listeners.*;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Bukkit;
@@ -97,7 +95,11 @@ public class AdminCommand implements CommandExecutor {
                         npc.data().setPersistent(RealEstateNPCListener.REALESTATE_NPC_TAG, true);
                         player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a real estate NPC!");
                     }
-                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate");
+                    case "blackmarket" -> {
+                        npc.data().setPersistent(BlackMarketListener.BLACK_MARKET_TAG, true);
+                        player.sendMessage("§fNPC §b" + npc.getName() + " §fis now the black market dealer!");
+                    }
+                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket");
                 }
             }
 
@@ -417,6 +419,194 @@ public class AdminCommand implements CommandExecutor {
                 }
             }
 
+            case "addblackmarket" -> {
+                // /mjbadmin addblackmarket — stand at the location
+                boolean ok = MJB.getInstance().getWeaponManager()
+                        .addBlackMarketLocation(player.getLocation());
+                player.sendMessage(ok
+                        ? "§fBlack market location added at §b" + player.getLocation().getBlockX() +
+                        ", " + player.getLocation().getBlockY() +
+                        ", " + player.getLocation().getBlockZ() + "§f."
+                        : "§4Failed to add location.");
+            }
+
+            case "removeblackmarket" -> {
+                if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin removeblackmarket <id>"); return true; }
+                int id;
+                try { id = Integer.parseInt(args[1]); }
+                catch (NumberFormatException e) { player.sendMessage("§4Invalid ID."); return true; }
+                boolean ok = MJB.getInstance().getWeaponManager().removeBlackMarketLocation(id);
+                player.sendMessage(ok ? "§fLocation §b" + id + " §fremoved." : "§4Failed.");
+            }
+
+            case "listblackmarket" -> {
+                var locs = MJB.getInstance().getWeaponManager().listBlackMarketLocationsRaw();
+                if (locs.isEmpty()) { player.sendMessage("§7No black market locations registered."); return true; }
+                player.sendMessage("§4§l--- Black Market Locations ---");
+                for (var loc : locs) {
+                    player.sendMessage("§7ID §b" + loc.id + "§7: §f" + loc.worldName +
+                            " " + loc.x + ", " + loc.y + ", " + loc.z);
+                }
+            }
+
+            case "moveblackmarket" -> {
+                MJB.getInstance().getBlackMarketListener().teleportNow();
+                player.sendMessage("§fBlack market NPC teleported to a random location.");
+            }
+
+            case "giveweapon" -> {
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin giveweapon <player> <pistol|rifle|shotgun|knife>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                com.UserMC.MJB.WeaponManager.WeaponType wType =
+                        com.UserMC.MJB.WeaponManager.WeaponType.fromId(args[2].toLowerCase());
+                if (wType == null) {
+                    player.sendMessage("§4Unknown weapon type. Use: pistol, rifle, shotgun, knife");
+                    return true;
+                }
+                target.getInventory().addItem(MJB.getInstance().getWeaponManager().createWeapon(wType));
+                player.sendMessage("§fGave §b" + target.getName() + " §fa §b" + wType.displayName + "§f.");
+                target.sendMessage("§b§l[Police] §fYou have been issued a §b" + wType.displayName + "§f.");
+            }
+
+            case "giveammo" -> {
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin giveammo <player> <pistol|rifle|shotgun>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                com.UserMC.MJB.WeaponManager.WeaponType wType =
+                        com.UserMC.MJB.WeaponManager.WeaponType.fromId(args[2].toLowerCase());
+                if (wType == null || wType == com.UserMC.MJB.WeaponManager.WeaponType.KNIFE) {
+                    player.sendMessage("§4Unknown ammo type. Use: pistol, rifle, shotgun");
+                    return true;
+                }
+                org.bukkit.inventory.ItemStack ammo =
+                        MJB.getInstance().getWeaponManager().createAmmo(wType);
+                if (ammo != null) target.getInventory().addItem(ammo);
+                player.sendMessage("§fGave §b" + target.getName() + " §f" + wType.displayName + " ammo.");
+                target.sendMessage("§b§l[Police] §fYou have been issued §b" + wType.displayName + " ammo§f.");
+            }
+
+            case "setpolice" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin setpolice <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                if (MJB.getInstance().getPoliceManager().isOfficer(target.getUniqueId())) {
+                    player.sendMessage("§4" + target.getName() + " is already an officer.");
+                    return true;
+                }
+                boolean ok = MJB.getInstance().getPoliceManager()
+                        .addOfficer(target.getUniqueId(), player.getUniqueId());
+                if (ok) {
+                    player.sendMessage("§f" + target.getName() + " §fis now a police officer.");
+                    target.sendMessage("§b§l[Police] §fYou have been appointed as a police officer by §b"
+                            + player.getName() + "§f.");
+                    target.sendMessage("§7Use §f/mjbadmin giveweapon §7to get your equipment.");
+                } else {
+                    player.sendMessage("§4Failed.");
+                }
+            }
+
+            case "removepolice" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin removepolice <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                boolean ok = MJB.getInstance().getPoliceManager()
+                        .removeOfficer(target.getUniqueId());
+                player.sendMessage(ok
+                        ? "§f" + target.getName() + " §fhas been removed from the police force."
+                        : "§4Failed — player may not be an officer.");
+                if (ok && target.isOnline()) {
+                    target.sendMessage("§4§l[Police] §4You have been removed from the police force.");
+                }
+            }
+
+            case "listpolice" -> {
+                var officers = MJB.getInstance().getPoliceManager().getAllOfficers();
+                if (officers.isEmpty()) {
+                    player.sendMessage("§7No officers on the force yet.");
+                    return true;
+                }
+                player.sendMessage("§b§l--- Police Officers ---");
+                for (var o : officers) {
+                    String name = MJB.getInstance().getServer().getOfflinePlayer(o.uuid).getName();
+                    player.sendMessage("§f- §b" + (name != null ? name : o.uuid.toString()));
+                }
+            }
+
+            case "givehandcuffs" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin givehandcuffs <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                target.getInventory().addItem(MJB.getInstance().getPoliceManager().createHandcuffs());
+                player.sendMessage("§fGave handcuffs to §b" + target.getName() + "§f.");
+                target.sendMessage("§b§l[Police] §fYou have been issued §fHandcuffs§f.");
+            }
+
+            case "givebadge" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin givebadge <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                target.getInventory().addItem(
+                        MJB.getInstance().getPoliceManager().createBadge(target.getName()));
+                player.sendMessage("§fGave badge to §b" + target.getName() + "§f.");
+                target.sendMessage("§b§l[Police] §fYou have been issued your §6Police Badge§f.");
+            }
+
+            case "uncuff" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin uncuff <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                if (!MJB.getInstance().getPoliceManager().isCuffed(target.getUniqueId())) {
+                    player.sendMessage("§4" + target.getName() + " is not cuffed.");
+                    return true;
+                }
+                MJB.getInstance().getPoliceManager().uncuff(target.getUniqueId());
+                player.sendMessage("§f" + target.getName() + " §fhas been uncuffed.");
+                target.sendMessage("§7An admin has released your handcuffs.");
+            }
+
+            case "setpolicerank" -> {
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin setpolicerank <player> <officer|detective|sergeant>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                if (!MJB.getInstance().getPoliceManager().isOfficer(target.getUniqueId())) {
+                    player.sendMessage("§4" + target.getName() + " is not on the force. Use /mjbadmin setpolice first.");
+                    return true;
+                }
+                CrimeManager.PoliceRank rank = CrimeManager.PoliceRank.fromString(args[2]);
+                if (rank == null) {
+                    player.sendMessage("§4Unknown rank. Use: officer, detective, sergeant");
+                    return true;
+                }
+                MJB.getInstance().getCrimeManager().setRank(target.getUniqueId(), rank);
+                player.sendMessage("§f" + target.getName() + " §fis now a §b" + rank.displayName + "§f.");
+                target.sendMessage("§b§l[Police] §fAn admin has set your rank to §b" + rank.displayName + "§f.");
+            }
+
 
             default -> sendHelp(player);
         }
@@ -464,5 +654,18 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin addlicensetype <type> <name> <cost> <renewal> <desc> §7- Add license type");
         player.sendMessage("§f/mjbadmin issuelicense <player> <type> §7- Issue license to player (free, admin only)");
         player.sendMessage("§f/mjbadmin revokelicense <player> <type> §7- Revoke a player's license");
+        player.sendMessage("§f/mjbadmin addblackmarket §7- Add black market spawn location (stand at spot)");
+        player.sendMessage("§f/mjbadmin removeblackmarket <id> §7- Remove a spawn location");
+        player.sendMessage("§f/mjbadmin listblackmarket §7- List all spawn locations");
+        player.sendMessage("§f/mjbadmin moveblackmarket §7- Force move NPC");
+        player.sendMessage("§f/mjbadmin giveweapon <player> <type> §7- Give a police-issued weapon");
+        player.sendMessage("§f/mjbadmin giveammo <player> <type> §7- Give police ammo");
+        player.sendMessage("§f/mjbadmin setpolice <player> §7- Appoint a player as police officer");
+        player.sendMessage("§f/mjbadmin removepolice <player> §7- Remove police rank");
+        player.sendMessage("§f/mjbadmin listpolice §7- List all officers");
+        player.sendMessage("§f/mjbadmin givehandcuffs <player> §7- Give handcuffs");
+        player.sendMessage("§f/mjbadmin givebadge <player> §7- Give police badge");
+        player.sendMessage("§f/mjbadmin uncuff <player> §7- Emergency uncuff");
+        player.sendMessage("§f/mjbadmin setpolicerank <player> <rank> §7- Set officer rank (officer/detective/sergeant)");
     }
 }

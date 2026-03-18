@@ -21,6 +21,7 @@ public class PlayerDeathListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
+        event.setDeathMessage(null);
         Player player = event.getEntity();
 
         // Find all cash items in the drops

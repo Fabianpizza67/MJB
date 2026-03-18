@@ -72,22 +72,39 @@ public class ComputerListener implements Listener {
         player.openInventory(gui);
     }
 
-    private void openOrderMenu(Player player) {
-           List<com.UserMC.MJB.LicenseManager.PlayerLicense> playerLicenses =
-           plugin.getLicenseManager().getPlayerLicenses(player.getUniqueId());
-       String license = playerLicenses.stream()
-           .filter(l -> !l.isRevoked && plugin.getLicenseManager().hasActiveLicense(player.getUniqueId(), l.licenseType))
-           .map(l -> l.licenseType)
-           .findFirst()
-           .orElse(null);
-       if (license == null) {
-           player.sendMessage("§4You need a license to place supply orders.");
-           player.sendMessage("§7Visit the §fGovernment Office §7to get one.");
-           player.closeInventory();
-           return;
-       }
+// REPLACE the entire openOrderMenu method in ComputerListener.java with this:
 
-        List<SupplyItem> items = plugin.getSupplyOrderManager().getAvailableItems(license);
+    private void openOrderMenu(Player player) {
+        // Collect ALL active license types the player holds
+        List<String> activeLicenses = plugin.getLicenseManager()
+                .getPlayerLicenses(player.getUniqueId())
+                .stream()
+                .filter(l -> !l.isRevoked && plugin.getLicenseManager()
+                        .hasActiveLicense(player.getUniqueId(), l.licenseType))
+                .map(l -> l.licenseType)
+                .distinct()
+                .toList();
+
+        if (activeLicenses.isEmpty()) {
+            player.sendMessage("§4You need a license to place supply orders.");
+            player.sendMessage("§7Visit the §fGovernment Office §7to get one.");
+            player.closeInventory();
+            return;
+        }
+
+        // Gather supply items for every active license the player holds
+        List<SupplyItem> items = new ArrayList<>();
+        for (String license : activeLicenses) {
+            items.addAll(plugin.getSupplyOrderManager().getAvailableItems(license));
+        }
+
+        if (items.isEmpty()) {
+            player.sendMessage("§7No supply items are available for your licenses yet.");
+            player.sendMessage("§7Ask an admin to add items with §f/mjbadmin addsupplyitem§7.");
+            player.closeInventory();
+            return;
+        }
+
         Inventory gui = plugin.getServer().createInventory(null, 54, ORDER_GUI_TITLE);
 
         int slot = 0;

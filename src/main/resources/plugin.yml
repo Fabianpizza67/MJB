@@ -39,7 +39,16 @@ commands:
     usage: /acceptjob
   declinejob:
     description: Decline a pending job offer
-    usage: /declinejob`
+    usage: /declinejob
+  police:
+    description: Police officer commands
+    usage: /police <info|wanted|charge|process|clear|rank|myrank>
+  911:
+    description: Emergency services call
+    usage: /911 <message>
+  112:
+    description: Emergency services call
+    usage: /112 <message>
 
 
 permissions:

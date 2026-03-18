@@ -24,6 +24,10 @@ public class MJB extends JavaPlugin {
     private ClothingManager clothingManager;
     private ThirstManager thirstManager;
     private CraftingLicenseManager craftingLicenseManager;
+    private WeaponManager weaponManager;
+    private BlackMarketListener blackMarketListener;
+    private PoliceManager policeManager;
+    private CrimeManager crimeManager;
 
     @Override
     public void onEnable() {
@@ -59,6 +63,12 @@ public class MJB extends JavaPlugin {
         thirstManager = new ThirstManager(this);
         thirstManager.startDrainScheduler();
         craftingLicenseManager = new CraftingLicenseManager(this);
+        weaponManager = new WeaponManager(this);
+        blackMarketListener = new BlackMarketListener(this);
+        blackMarketListener.startTeleportScheduler();
+        policeManager = new PoliceManager(this);
+        policeManager.startEscortScheduler();
+        crimeManager = new CrimeManager(this);
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -75,6 +85,10 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(realEstateNPCListener, this);
         getServer().getPluginManager().registerEvents(new ThirstListener(this), this);
         getServer().getPluginManager().registerEvents(new CraftingLicenseListener(this), this);
+        getServer().getPluginManager().registerEvents(new WeaponListener(this), this);
+        getServer().getPluginManager().registerEvents(blackMarketListener, this);
+        getServer().getPluginManager().registerEvents(new PoliceListener(this), this);
+        getServer().getPluginManager().registerEvents(new CrimeListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -100,6 +114,10 @@ public class MJB extends JavaPlugin {
 
         getCommand("acceptjob").setExecutor(new AcceptJobCommand(this));
         getCommand("declinejob").setExecutor(new DeclineJobCommand(this));
+        getCommand("police").setExecutor(new PoliceCommand(this));
+        getCommand("police").setTabCompleter(new PoliceCommand(this));
+        getCommand("911").setExecutor(new EmergencyCommand(this));
+        getCommand("112").setExecutor(new EmergencyCommand(this));
 
 
         getLogger().info("CityLife Core enabled successfully!");
@@ -128,5 +146,9 @@ public class MJB extends JavaPlugin {
     public ClothingManager getClothingManager() { return clothingManager; }
     public ThirstManager getThirstManager() { return thirstManager; }
     public CraftingLicenseManager getCraftingLicenseManager() { return craftingLicenseManager; }
+    public WeaponManager getWeaponManager() { return weaponManager; }
+    public BlackMarketListener getBlackMarketListener() { return blackMarketListener; }
+    public PoliceManager getPoliceManager() { return policeManager; }
+    public CrimeManager getCrimeManager() { return crimeManager; }
 
 }

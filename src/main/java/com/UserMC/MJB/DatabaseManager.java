@@ -79,6 +79,22 @@ public class DatabaseManager {
                 // Column already exists, that's fine
             }
 
+            try {
+                stmt.execute("ALTER TABLE players ADD COLUMN thirst INT NOT NULL DEFAULT 20");
+                plugin.getLogger().info("Added thirst column to players table.");
+            } catch (SQLException ignored) {}
+
+            try {
+                stmt.execute("ALTER TABLE supply_orders ADD COLUMN company_id INT DEFAULT NULL");
+                plugin.getLogger().info("Added company_id column to supply_orders table.");
+            } catch (SQLException ignored) {}
+
+            try {
+                stmt.execute("ALTER TABLE company_roles ADD COLUMN place_orders BOOLEAN NOT NULL DEFAULT FALSE");
+                plugin.getLogger().info("Added place_orders column to company_roles table.");
+            } catch (SQLException ignored) {}
+
+
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS starter_apartments (" +
                             "region_id VARCHAR(64) PRIMARY KEY," +
@@ -122,6 +138,7 @@ public class DatabaseManager {
                             "ready_at TIMESTAMP NULL" +
                             ")"
             );
+
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS supply_order_items (" +
                             "id INT AUTO_INCREMENT PRIMARY KEY," +
@@ -270,6 +287,40 @@ public class DatabaseManager {
                             "FOREIGN KEY (license_type) REFERENCES license_types(type_name) ON DELETE CASCADE" +
                             ")"
             );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS police_officers (" +
+                            "uuid VARCHAR(36) PRIMARY KEY," +
+                            "appointed_by VARCHAR(36) DEFAULT NULL," +
+                            "appointed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "rank VARCHAR(16) NOT NULL DEFAULT 'OFFICER'" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS crime_records (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "offence VARCHAR(256) NOT NULL," +
+                            "witnessed_by VARCHAR(36) DEFAULT NULL," +
+                            "recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "processed BOOLEAN NOT NULL DEFAULT FALSE" +
+                            ")"
+            );
+
+            try {
+                stmt.execute(
+                        "CREATE TABLE IF NOT EXISTS black_market_locations (" +
+                                "id INT AUTO_INCREMENT PRIMARY KEY," +
+                                "world VARCHAR(64) NOT NULL," +
+                                "x INT NOT NULL," +
+                                "y INT NOT NULL," +
+                                "z INT NOT NULL" +
+                                ")"
+                );
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Error creating black_market_locations table: " + e.getMessage());
+            }
 
 // Seed treasury row if not exists
             stmt.execute("INSERT IGNORE INTO city_treasury (id, balance) VALUES (1, 0)");
