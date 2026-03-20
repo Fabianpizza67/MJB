@@ -99,7 +99,11 @@ public class AdminCommand implements CommandExecutor {
                         npc.data().setPersistent(BlackMarketListener.BLACK_MARKET_TAG, true);
                         player.sendMessage("§fNPC §b" + npc.getName() + " §fis now the black market dealer!");
                     }
-                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket");
+                    case "policestation" -> {
+                        npc.data().setPersistent(PoliceStationListener.STATION_NPC_TAG, true);
+                        player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a police station terminal!");
+                    }
+                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket, policestation");
                 }
             }
 
@@ -607,6 +611,19 @@ public class AdminCommand implements CommandExecutor {
                 target.sendMessage("§b§l[Police] §fAn admin has set your rank to §b" + rank.displayName + "§f.");
             }
 
+            case "setpolicestation" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin setpolicestation <npc_id>");
+                    return true;
+                }
+                NPC npc = getNPC(player, args[1]);
+                if (npc == null) return true;
+                npc.data().setPersistent(
+                        com.UserMC.MJB.listeners.PoliceStationListener.STATION_NPC_TAG, true);
+                player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a police station terminal!");
+            }
+
+
 
             default -> sendHelp(player);
         }
@@ -667,5 +684,6 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin givebadge <player> §7- Give police badge");
         player.sendMessage("§f/mjbadmin uncuff <player> §7- Emergency uncuff");
         player.sendMessage("§f/mjbadmin setpolicerank <player> <rank> §7- Set officer rank (officer/detective/sergeant)");
+        player.sendMessage("§f/mjbadmin setpolicestation <npc_id> §7- Set police station terminal NPC");
     }
 }

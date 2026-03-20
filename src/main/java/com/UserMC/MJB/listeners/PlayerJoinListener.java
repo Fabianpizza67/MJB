@@ -34,6 +34,11 @@ public class PlayerJoinListener implements Listener {
                 int thirst = plugin.getThirstManager().getThirst(player.getUniqueId());
                 if (thirst == 0) {
                     plugin.getThirstManager().applyThirstEffects(player);
+                    if (plugin.getPoliceManager().isOfficer(player.getUniqueId())) {
+                        plugin.getServer().getScheduler().runTaskLater(plugin, () ->
+                                plugin.getPoliceBudgetManager().deliverPendingItems(player), 20L);
+                    }
+
                 }
             }, 20L);
         }

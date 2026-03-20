@@ -28,6 +28,7 @@ public class MJB extends JavaPlugin {
     private BlackMarketListener blackMarketListener;
     private PoliceManager policeManager;
     private CrimeManager crimeManager;
+    private PoliceBudgetManager policeBudgetManager;
 
     @Override
     public void onEnable() {
@@ -69,6 +70,10 @@ public class MJB extends JavaPlugin {
         policeManager = new PoliceManager(this);
         policeManager.startEscortScheduler();
         crimeManager = new CrimeManager(this);
+        policeBudgetManager = new PoliceBudgetManager(this);
+        policeBudgetManager.startSchedulers();
+        supplyOrderManager.recoverPendingOrders();
+        policeBudgetManager.recoverPendingRequisitions();
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -89,6 +94,7 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(blackMarketListener, this);
         getServer().getPluginManager().registerEvents(new PoliceListener(this), this);
         getServer().getPluginManager().registerEvents(new CrimeListener(this), this);
+        getServer().getPluginManager().registerEvents(new PoliceStationListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -120,13 +126,13 @@ public class MJB extends JavaPlugin {
         getCommand("112").setExecutor(new EmergencyCommand(this));
 
 
-        getLogger().info("CityLife Core enabled successfully!");
+        getLogger().info("MJB Enabled succesfully!");
     }
 
     @Override
     public void onDisable() {
         if (databaseManager != null) databaseManager.disconnect();
-        getLogger().info("CityLife Core disabled.");
+        getLogger().info("MJB Disabled.");
     }
 
     public static MJB getInstance() { return instance; }
@@ -150,5 +156,6 @@ public class MJB extends JavaPlugin {
     public BlackMarketListener getBlackMarketListener() { return blackMarketListener; }
     public PoliceManager getPoliceManager() { return policeManager; }
     public CrimeManager getCrimeManager() { return crimeManager; }
+    public PoliceBudgetManager getPoliceBudgetManager() { return policeBudgetManager; }
 
 }

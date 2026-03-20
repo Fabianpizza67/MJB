@@ -255,6 +255,13 @@ public class WeaponListener implements Listener {
 
         ItemStack held = attacker.getInventory().getItemInMainHand();
 
+        if (plugin.getPoliceBudgetManager().isBaton(held)) {
+            // Baton is police-only melee — 6 damage (3 hearts)
+            event.setDamage(6.0);
+            plugin.getWeaponManager().recordAttacked(victim.getUniqueId());
+            return;
+        }
+
         if (plugin.getWeaponManager().isWeapon(held)) {
             WeaponType type = plugin.getWeaponManager().getWeaponType(held);
             if (type == WeaponType.KNIFE) {

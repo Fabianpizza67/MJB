@@ -308,6 +308,40 @@ public class DatabaseManager {
                             ")"
             );
 
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS police_budget (" +
+                            "id INT PRIMARY KEY DEFAULT 1," +
+                            "balance DOUBLE NOT NULL DEFAULT 0" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS police_requisitions (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "officer_uuid VARCHAR(36) NOT NULL," +
+                            "item_type VARCHAR(32) NOT NULL," +
+                            "quantity INT NOT NULL DEFAULT 1," +
+                            "status VARCHAR(16) NOT NULL DEFAULT 'pending'," +
+                            "requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "ordered_at TIMESTAMP NULL" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS police_pending_deliveries (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "officer_uuid VARCHAR(36) NOT NULL," +
+                            "item_type VARCHAR(32) NOT NULL," +
+                            "quantity INT NOT NULL DEFAULT 1," +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            try {
+                stmt.execute("ALTER TABLE police_officers ADD COLUMN salary DOUBLE NOT NULL DEFAULT 0");
+                plugin.getLogger().info("Added salary column to police_officers.");
+            } catch (SQLException ignored) {}
+
             try {
                 stmt.execute(
                         "CREATE TABLE IF NOT EXISTS black_market_locations (" +

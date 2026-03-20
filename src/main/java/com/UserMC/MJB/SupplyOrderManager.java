@@ -132,25 +132,29 @@ public class SupplyOrderManager {
         }
     }
 
-    private void scheduleDelivery(int orderId, int seconds) {
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            String sql = "UPDATE supply_orders SET status = 'ready', ready_at = CURRENT_TIMESTAMP WHERE id = ?";
-            try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-                stmt.setInt(1, orderId);
-                stmt.executeUpdate();
-            } catch (SQLException e) {
-                plugin.getLogger().severe("Error marking order ready: " + e.getMessage());
-                return;
-            }
+    private void markOrderReady(int orderId) {
+        String sql = "UPDATE supply_orders SET status = 'ready', ready_at = CURRENT_TIMESTAMP WHERE id = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error marking order ready: " + e.getMessage());
+            return;
+        }
 
-            Order order = getOrder(orderId);
-            if (order == null) return;
-            Player owner = plugin.getServer().getPlayer(order.ownerUuid);
-            if (owner != null) {
-                owner.sendMessage("§b§l[Supply] §fYour order §b#" + orderId + " §fis ready for pickup!");
-                owner.sendMessage("§7Visit the pickup NPC in §b" + order.district + " §7to collect it.");
-            }
-        }, (long) seconds * 20L);
+        Order order = getOrder(orderId);
+        if (order == null) return;
+        Player owner = plugin.getServer().getPlayer(order.ownerUuid);
+        if (owner != null) {
+            owner.sendMessage("§b§l[Supply] §fYour order §b#" + orderId + " §fis ready for pickup!");
+            owner.sendMessage("§7Visit the pickup NPC in §b" + order.district + " §7to collect it.");
+        }
+    }
+
+
+    private void scheduleDelivery(int orderId, int seconds) {
+        plugin.getServer().getScheduler().runTaskLater(plugin,
+                () -> markOrderReady(orderId), (long) seconds * 20L);
     }
 
     public boolean authorizePlayer(int orderId, UUID uuid) {
@@ -569,4 +573,48 @@ public class SupplyOrderManager {
             this.readyAt = readyAt;
         }
     }
+
+
+    public void recoverPendingOrders() {
+        String sql = "SELECT id, ordered_at FROM supply_orders WHERE status = 'pending'";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            int count = 0;
+            while (rs.next()) {
+                int orderId        = rs.getInt("id");
+                Timestamp orderedAt = rs.getTimestamp("ordered_at");
+
+                // We don't store the original delivery duration, so we need to recalculate
+                // from the order items. Use the same logic as placeOrder().
+                List<OrderLine> lines = getOrderLines(orderId);
+                if (lines.isEmpty()) continue;
+
+                int maxDelivery = lines.stream()
+                        .mapToInt(l -> l.quantity * l.deliverySeconds)
+                        .max()
+                        .orElse(1800);
+
+                long orderedMs   = orderedAt.getTime();
+                long elapsedMs   = System.currentTimeMillis() - orderedMs;
+                long remainingMs = ((long) maxDelivery * 1000) - elapsedMs;
+
+                if (remainingMs <= 0) {
+                    // Overdue — deliver on next tick
+                    plugin.getServer().getScheduler().runTaskLater(plugin,
+                            () -> markOrderReady(orderId), 1L);
+                } else {
+                    long remainingTicks = remainingMs / 50L;
+                    plugin.getServer().getScheduler().runTaskLater(plugin,
+                            () -> markOrderReady(orderId), remainingTicks);
+                }
+                count++;
+            }
+            if (count > 0) {
+                plugin.getLogger().info("[Supply] Recovered " + count + " pending order(s).");
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error recovering supply orders: " + e.getMessage());
+        }
+    }
+
 }

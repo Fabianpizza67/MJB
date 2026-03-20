@@ -1,5 +1,5 @@
 name: MJB
-version: 1.0
+version: 0.1.2
 main: com.UserMC.MJB.MJB
 api-version: "1.21"
 authors: [Fabianpizza]
