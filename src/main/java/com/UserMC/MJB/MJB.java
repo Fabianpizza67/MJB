@@ -3,6 +3,7 @@ package com.UserMC.MJB;
 import com.UserMC.MJB.commands.*;
 import com.UserMC.MJB.listeners.*;
 import com.UserMC.MJB.tabcomplete.*;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class MJB extends JavaPlugin {
@@ -29,6 +30,9 @@ public class MJB extends JavaPlugin {
     private PoliceManager policeManager;
     private CrimeManager crimeManager;
     private PoliceBudgetManager policeBudgetManager;
+    private GovernmentManager governmentManager;
+    private CouncilListener councilListener;
+    private PhoneManager phoneManager;
 
     @Override
     public void onEnable() {
@@ -74,6 +78,12 @@ public class MJB extends JavaPlugin {
         policeBudgetManager.startSchedulers();
         supplyOrderManager.recoverPendingOrders();
         policeBudgetManager.recoverPendingRequisitions();
+        governmentManager = new GovernmentManager(this);
+        governmentManager.init();
+        governmentManager.startSessionScheduler();
+        governmentManager.startElectionScheduler();
+        councilListener = new CouncilListener(this);
+        phoneManager = new PhoneManager(this);
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -95,6 +105,8 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PoliceListener(this), this);
         getServer().getPluginManager().registerEvents(new CrimeListener(this), this);
         getServer().getPluginManager().registerEvents(new PoliceStationListener(this), this);
+        getServer().getPluginManager().registerEvents(new ElectionListener(this), this);
+        getServer().getPluginManager().registerEvents(new PhoneListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -124,6 +136,45 @@ public class MJB extends JavaPlugin {
         getCommand("police").setTabCompleter(new PoliceCommand(this));
         getCommand("911").setExecutor(new EmergencyCommand(this));
         getCommand("112").setExecutor(new EmergencyCommand(this));
+        getCommand("party").setExecutor(new GovernmentCommand(this));
+        getCommand("party").setTabCompleter(new GovernmentCommand(this));
+        getCommand("laws").setExecutor(new GovernmentCommand(this));
+        getCommand("mayor").setExecutor(new GovernmentCommand(this));
+        getCommand("mayor").setTabCompleter(new GovernmentCommand(this));
+        getCommand("government").setExecutor(new GovernmentCommand(this));
+        getCommand("council").setExecutor(new CouncilCommand(this));
+        getCommand("council").setTabCompleter(new CouncilCommand(this));
+        getCommand("answercall").setExecutor((sender, cmd, label, args) -> {
+            if (!(sender instanceof Player player)) return true;
+            if (!phoneManager.hasPendingCall(player.getUniqueId())) {
+                player.sendMessage("§4You don't have an incoming call.");
+                return true;
+            }
+            phoneManager.acceptCall(player.getUniqueId());
+            return true;
+        });
+
+        getCommand("declinecall").setExecutor((sender, cmd, label, args) -> {
+            if (!(sender instanceof Player player)) return true;
+            if (!phoneManager.hasPendingCall(player.getUniqueId())) {
+                player.sendMessage("§4You don't have an incoming call.");
+                return true;
+            }
+            phoneManager.declineCall(player.getUniqueId());
+            player.sendMessage("§7Call declined.");
+            return true;
+        });
+
+        getCommand("endcall").setExecutor((sender, cmd, label, args) -> {
+            if (!(sender instanceof Player player)) return true;
+            if (!phoneManager.isInCall(player.getUniqueId())) {
+                player.sendMessage("§4You are not in a call.");
+                return true;
+            }
+            phoneManager.endCall(player.getUniqueId());
+            player.sendMessage("§7Call ended.");
+            return true;
+        });
 
 
         getLogger().info("MJB Enabled succesfully!");
@@ -157,5 +208,8 @@ public class MJB extends JavaPlugin {
     public PoliceManager getPoliceManager() { return policeManager; }
     public CrimeManager getCrimeManager() { return crimeManager; }
     public PoliceBudgetManager getPoliceBudgetManager() { return policeBudgetManager; }
+    public GovernmentManager getGovernmentManager() { return governmentManager; }
+    public CouncilListener getCouncilListener() { return councilListener; }
+    public PhoneManager getPhoneManager() { return phoneManager; }
 
 }

@@ -187,13 +187,28 @@ public class PoliceBudgetManager {
         plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
                         plugin.getServer().getScheduler().runTask(plugin, this::processDailySalaries),
                 oneDayTicks, oneDayTicks);
-
         // Weekly 2K server top-up
         long oneWeekTicks = oneDayTicks * 7;
         plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
                         plugin.getServer().getScheduler().runTask(plugin, () -> {
                             addToBudget(10000.0);
                             notifySergeants("§b§l[Police Budget] §fThe server has deposited §b$10,000 §finto the police budget.");
+                        }),
+                oneWeekTicks, oneWeekTicks);
+        // Weekly city contribution (set by council vote, separate from the base 10K)
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
+                        plugin.getServer().getScheduler().runTask(plugin, () -> {
+                            try {
+                                double contribution = Double.parseDouble(
+                                        plugin.getGovernmentManager().getGovernmentSetting(
+                                                "police_weekly_contribution", "0"));
+                                if (contribution > 0) {
+                                    addToBudget(contribution);
+                                    notifySergeants("§b§l[Police Budget] §fThe city contributed §b" +
+                                            plugin.getEconomyManager().format(contribution) +
+                                            " §fto the police budget this week.");
+                                }
+                            } catch (NumberFormatException ignored) { }
                         }),
                 oneWeekTicks, oneWeekTicks);
     }
@@ -484,5 +499,8 @@ public class PoliceBudgetManager {
         } catch (SQLException e) {
             plugin.getLogger().severe("Error recovering requisitions: " + e.getMessage());
         }
+    }
+    public void setPoliceContribution(double amount) {
+        plugin.getGovernmentManager().setGovernmentSetting("police_contribution", String.valueOf(amount));
     }
 }

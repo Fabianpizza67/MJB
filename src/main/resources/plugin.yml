@@ -5,7 +5,7 @@ api-version: "1.21"
 authors: [Fabianpizza]
 description: CityLife core plugin
 depend: [Vault, WorldGuard]
-softdepend: [Citizens]
+softdepend: [Citizens, voicechat]
 
 commands:
   pay:
@@ -49,6 +49,31 @@ commands:
   112:
     description: Emergency services call
     usage: /112 <message>
+  party:
+    description: Party management
+    usage: /party <create|disband|invite|kick|leave|info|list>
+  laws:
+    description: View active laws
+    usage: /laws
+  mayor:
+    description: View mayor info and mayor commands
+    usage: /mayor [subcommand]
+  government:
+    description: View government status
+    usage: /government
+    aliases: [ gov ]
+  answercall:
+    description: Answer an incoming call
+    usage: /answercall
+  declinecall:
+    description: Decline an incoming call
+    usage: /declinecall
+  endcall:
+    description: End your current call
+    usage: /endcall
+  council:
+    description: Council chair commands
+    usage: /council <subcommand>
 
 
 permissions:

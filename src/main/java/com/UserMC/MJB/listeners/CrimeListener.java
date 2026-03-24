@@ -37,6 +37,7 @@ public class CrimeListener implements Listener {
             Player witness = plugin.getCrimeManager().getNearbyOfficer(
                     shooter.getLocation(), WITNESS_RANGE);
             if (witness != null) {
+                if (!plugin.getGovernmentManager().areGunsLegal()) {
                 plugin.getCrimeManager().addOffence(
                         shooter.getUniqueId(),
                         "Assault with a firearm (victim: " + victim.getName() + ")",
@@ -46,6 +47,7 @@ public class CrimeListener implements Listener {
                         " §cshoot §f" + victim.getName() + "§c! They are now wanted.");
                 shooter.sendMessage("§c§l[Wanted] §cA police officer witnessed you shoot " +
                         victim.getName() + ". You are now wanted!");
+            }
             }
             return;
         }

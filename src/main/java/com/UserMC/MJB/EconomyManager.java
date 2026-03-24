@@ -40,6 +40,7 @@ public class EconomyManager {
         }
     }
 
+
     public double getBankBalance(UUID uuid) {
         String sql = "SELECT bank_balance FROM players WHERE uuid = ?";
         try (PreparedStatement stmt = db.getConnection().prepareStatement(sql)) {
@@ -121,6 +122,22 @@ public class EconomyManager {
             stmt2.setDouble(1, amount);
             stmt2.setString(2, to.toString());
             stmt2.executeUpdate();
+            double taxRate = plugin.getGovernmentManager().getTaxRate();
+            if (taxRate > 0) {
+                double tax = Math.round(amount * (taxRate / 100.0) * 100.0) / 100.0;
+                // Deduct tax from recipient, add to city treasury
+                String taxSql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
+                try (PreparedStatement taxStmt = db.getConnection().prepareStatement(taxSql)) {
+                    taxStmt.setDouble(1, tax);
+                    taxStmt.setString(2, to.toString());
+                    taxStmt.executeUpdate();
+                }
+                String treasurySql = "UPDATE city_treasury SET balance = balance + ?";
+                try (PreparedStatement tStmt = db.getConnection().prepareStatement(treasurySql)) {
+                    tStmt.setDouble(1, tax);
+                    tStmt.executeUpdate();
+                }
+            }
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Error transferring balance: " + e.getMessage());

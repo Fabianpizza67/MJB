@@ -623,7 +623,47 @@ public class AdminCommand implements CommandExecutor {
                 player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a police station terminal!");
             }
 
+            case "setvotingbooth" -> {
+                // /mjbadmin setvotingbooth <npc_id>
+                if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin setvotingbooth <npc_id>"); return true; }
+                NPC npc = getNPC(player, args[1]);
+                if (npc == null) return true;
+                npc.data().setPersistent(
+                        com.UserMC.MJB.listeners.ElectionListener.VOTING_BOOTH_TAG, true);
+                player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a voting booth!");
+            }
 
+            case "setcouncilregion" -> {
+                // /mjbadmin setcouncilregion — stand in the region
+                String regionId = MJB.getInstance().getPlotManager().getRegionAtPlayer(player);
+                if (regionId == null) { player.sendMessage("§4You are not in any WorldGuard region."); return true; }
+                boolean ok = MJB.getInstance().getGovernmentManager()
+                        .addCouncilRegion(regionId, player.getWorld().getName());
+                player.sendMessage(ok ? "§fRegion §b" + regionId + " §fset as council chamber." : "§4Failed.");
+            }
+
+            case "startelection" -> {
+                // /mjbadmin startelection — force start an election
+                int id = MJB.getInstance().getGovernmentManager().startElection();
+                player.sendMessage(id != -1 ? "§fElection started (ID: " + id + ")." : "§4Election already active.");
+            }
+
+            case "closeelection" -> {
+                MJB.getInstance().getGovernmentManager().closeElection();
+                player.sendMessage("§fElection closed and results announced.");
+            }
+
+            case "opensession" -> {
+                int id = MJB.getInstance().getGovernmentManager().openSession();
+                player.sendMessage(id != -1 ? "§fCouncil session opened." : "§4Session already active.");
+            }
+
+            case "closesession" -> {
+                int sessionId = MJB.getInstance().getGovernmentManager().getActiveSessionId();
+                MJB.getInstance().getGovernmentManager().evaluateProposals(sessionId);
+                MJB.getInstance().getGovernmentManager().closeSession();
+                player.sendMessage("§fCouncil session closed and proposals evaluated.");
+            }
 
             default -> sendHelp(player);
         }
@@ -685,5 +725,11 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin uncuff <player> §7- Emergency uncuff");
         player.sendMessage("§f/mjbadmin setpolicerank <player> <rank> §7- Set officer rank (officer/detective/sergeant)");
         player.sendMessage("§f/mjbadmin setpolicestation <npc_id> §7- Set police station terminal NPC");
+        player.sendMessage("§f/mjbadmin setvotingbooth <npc_id> §7- Set voting booth NPC");
+        player.sendMessage("§f/mjbadmin setcouncilregion §7- Set current region as council chamber");
+        player.sendMessage("§f/mjbadmin startelection §7- Force start election");
+        player.sendMessage("§f/mjbadmin closeelection §7- Force close election + announce results");
+        player.sendMessage("§f/mjbadmin opensession §7- Force open council session");
+        player.sendMessage("§f/mjbadmin closesession §7- Force close session + evaluate proposals");
     }
 }

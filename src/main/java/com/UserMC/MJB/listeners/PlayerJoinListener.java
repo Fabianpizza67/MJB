@@ -27,6 +27,13 @@ public class PlayerJoinListener implements Listener {
             player.sendMessage("§fYou've been given §b$100.00 §fcash to get started.");
             player.sendMessage("§7Visit the housing office NPC to claim your starter apartment.");
             player.sendMessage("§7Then visit the bank to deposit your cash safely!");
+            String phoneNumber = plugin.getPhoneManager().assignPhoneNumber(player.getUniqueId());
+            if (phoneNumber != null) {
+                player.getInventory().addItem(plugin.getPhoneManager().createPhone(phoneNumber));
+                player.sendMessage("§f§l[📱] §fYour phone number is: §b" + phoneNumber);
+                player.sendMessage("§7Right-click your phone to open it.");
+            }
+
         } else {
             // Check if starter apartment should be reclaimed
             plugin.getPlotManager().reclaimStarterIfNeeded(player);

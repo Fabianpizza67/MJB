@@ -289,6 +289,116 @@ public class DatabaseManager {
             );
 
             stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS parties (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "name VARCHAR(64) NOT NULL UNIQUE," +
+                            "leader_uuid VARCHAR(36) NOT NULL," +
+                            "description VARCHAR(256)," +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS party_members (" +
+                            "party_id INT NOT NULL," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (party_id, player_uuid)," +
+                            "FOREIGN KEY (party_id) REFERENCES parties(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS elections (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "status VARCHAR(16) NOT NULL DEFAULT 'active'," +
+                            "started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "ends_at TIMESTAMP NOT NULL" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS election_votes (" +
+                            "election_id INT NOT NULL," +
+                            "voter_uuid VARCHAR(36) NOT NULL," +
+                            "party_id INT NOT NULL," +
+                            "PRIMARY KEY (election_id, voter_uuid)," +
+                            "FOREIGN KEY (election_id) REFERENCES elections(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS election_results (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "election_id INT NOT NULL," +
+                            "party_id INT NOT NULL," +
+                            "seats INT NOT NULL DEFAULT 0," +
+                            "is_winner BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "FOREIGN KEY (election_id) REFERENCES elections(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS council_sessions (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "status VARCHAR(16) NOT NULL DEFAULT 'active'," +
+                            "started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "ends_at TIMESTAMP NOT NULL" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS proposals (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "session_id INT NOT NULL," +
+                            "proposer_uuid VARCHAR(36) NOT NULL," +
+                            "text VARCHAR(512) NOT NULL," +
+                            "law_type VARCHAR(64) NOT NULL DEFAULT 'custom'," +
+                            "law_value VARCHAR(128) NOT NULL DEFAULT 'true'," +
+                            "status VARCHAR(16) NOT NULL DEFAULT 'open'," +
+                            "yes_votes INT NOT NULL DEFAULT 0," +
+                            "no_votes INT NOT NULL DEFAULT 0," +
+                            "proposed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "FOREIGN KEY (session_id) REFERENCES council_sessions(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS proposal_votes (" +
+                            "proposal_id INT NOT NULL," +
+                            "voter_uuid VARCHAR(36) NOT NULL," +
+                            "vote BOOLEAN NOT NULL," +
+                            "seats_used INT NOT NULL DEFAULT 1," +
+                            "PRIMARY KEY (proposal_id, voter_uuid)," +
+                            "FOREIGN KEY (proposal_id) REFERENCES proposals(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS laws (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "title VARCHAR(512) NOT NULL," +
+                            "law_type VARCHAR(64) NOT NULL," +
+                            "law_value VARCHAR(128) NOT NULL DEFAULT 'true'," +
+                            "passed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "passed_by_proposal_id INT DEFAULT NULL," +
+                            "is_active BOOLEAN NOT NULL DEFAULT TRUE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS council_regions (" +
+                            "region_id VARCHAR(64) NOT NULL," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "PRIMARY KEY (region_id, world)" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS government_settings (" +
+                            "setting_key VARCHAR(64) PRIMARY KEY," +
+                            "value VARCHAR(256) NOT NULL" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS government_state (" +
+                            "id INT PRIMARY KEY DEFAULT 1," +
+                            "mayor_uuid VARCHAR(36) DEFAULT NULL" +
+                            ")"
+            );
+            stmt.execute("INSERT IGNORE INTO government_state (id) VALUES (1)");
+
+            stmt.execute(
                     "CREATE TABLE IF NOT EXISTS police_officers (" +
                             "uuid VARCHAR(36) PRIMARY KEY," +
                             "appointed_by VARCHAR(36) DEFAULT NULL," +
@@ -334,6 +444,65 @@ public class DatabaseManager {
                             "item_type VARCHAR(32) NOT NULL," +
                             "quantity INT NOT NULL DEFAULT 1," +
                             "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS phone_numbers (" +
+                            "player_uuid VARCHAR(36) PRIMARY KEY," +
+                            "phone_number VARCHAR(16) NOT NULL UNIQUE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS contacts (" +
+                            "owner_uuid VARCHAR(36) NOT NULL," +
+                            "contact_name VARCHAR(32) NOT NULL," +
+                            "phone_number VARCHAR(16) NOT NULL," +
+                            "PRIMARY KEY (owner_uuid, phone_number)" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS conversations (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "is_group BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "group_name VARCHAR(64) DEFAULT NULL," +
+                            "participant_a VARCHAR(36) DEFAULT NULL," +
+                            "participant_b VARCHAR(36) DEFAULT NULL," +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS group_members (" +
+                            "conversation_id INT NOT NULL," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (conversation_id, player_uuid)," +
+                            "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS messages (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "conversation_id INT NOT NULL," +
+                            "sender_uuid VARCHAR(36) NOT NULL," +
+                            "text TEXT NOT NULL," +
+                            "sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS message_reads (" +
+                            "message_id INT NOT NULL," +
+                            "reader_uuid VARCHAR(36) NOT NULL," +
+                            "PRIMARY KEY (message_id, reader_uuid)," +
+                            "FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS church (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "player_uuid VARCHAR(36) ," +
+                            "last_visit TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                             ")"
             );
 
