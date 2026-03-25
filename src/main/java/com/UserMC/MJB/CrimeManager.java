@@ -52,6 +52,8 @@ public class CrimeManager {
             stmt.setString(1, rank.name());
             stmt.setString(2, uuid.toString());
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Error setting rank: " + e.getMessage());

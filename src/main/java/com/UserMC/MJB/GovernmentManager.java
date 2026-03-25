@@ -100,18 +100,10 @@ public class GovernmentManager {
                 if (rs.next()) {
                     long endsAt = rs.getTimestamp("ends_at").getTime();
                     long remainingMs = endsAt - System.currentTimeMillis();
-                    if (remainingMs <= 0) {
-                        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                            evaluateProposals(activeSessionId);
-                            closeSession();
-                        }, 1L);
-                    } else {
-                        final int sessionIdToClose = activeSessionId;
-                        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                            evaluateProposals(sessionIdToClose);
-                            closeSession();
-                        }, remainingMs / 50L);
-                    }
+                    plugin.getServer().getScheduler().runTaskLater(plugin,
+                            this::closeSession, remainingMs / 50L);
+                    plugin.getServer().getScheduler().runTaskLater(plugin,
+                            this::closeSession, 1L);
                     plugin.getLogger().info("[Government] Recovered active council session.");
                 }
             } catch (SQLException e) {
@@ -164,6 +156,29 @@ public class GovernmentManager {
         }
     }
 
+    private double getTreasuryBalance() {
+        String sql = "SELECT balance FROM city_treasury WHERE id = 1";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getDouble("balance");
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error getting treasury balance: " + e.getMessage());
+        }
+        return 0;
+    }
+
+    private boolean deductFromTreasury(double amount) {
+        String sql = "UPDATE city_treasury SET balance = balance - ? WHERE id = 1 AND balance >= ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+            stmt.setDouble(1, amount);
+            stmt.setDouble(2, amount);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error deducting from treasury: " + e.getMessage());
+            return false;
+        }
+    }
+
     public boolean disbandParty(int partyId, UUID requesterUuid) {
         PartyInfo info = getPartyById(partyId);
         if (info == null || !info.leaderUuid.equals(requesterUuid)) return false;
@@ -181,6 +196,8 @@ public class GovernmentManager {
             stmt.setInt(1, partyId);
             stmt.setString(2, uuid.toString());
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) { return false; }
     }
@@ -193,6 +210,8 @@ public class GovernmentManager {
             stmt.setInt(1, partyId);
             stmt.setString(2, uuid.toString());
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) { return false; }
     }
@@ -439,6 +458,10 @@ public class GovernmentManager {
             if (winner != null) {
                 mayorUuid = winner.leaderUuid;
                 setMayorInDb(mayorUuid);
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    Player newMayor = plugin.getServer().getPlayer(mayorUuid);
+                    if (newMayor != null) plugin.getNameTagManager().refresh(newMayor);
+                });
 
                 // Announce results
                 final PartyInfo finalWinner = winner;
@@ -493,7 +516,7 @@ public class GovernmentManager {
 
             for (Player p : plugin.getServer().getOnlinePlayers()) {
                 p.sendMessage("§9§l[Council] §bA council session is now open!");
-                p.sendMessage("§7Council members may use §f/propose <text> §7in the council chamber.");
+                p.sendMessage("§7Council chairs can now enact laws via §f/council§7.");
                 p.sendMessage("§7Session lasts §f2 hours§7.");
             }
             // Auto-close after 2 hours
@@ -520,127 +543,6 @@ public class GovernmentManager {
         }
     }
 
-    // ---- Proposals ----
-
-    public int submitProposal(UUID proposerUuid, String text, String lawType, String lawValue) {
-        if (!isSessionActive()) return -1;
-        String sql = "INSERT INTO proposals (session_id, proposer_uuid, text, law_type, law_value) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection()
-                .prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setInt(1, activeSessionId);
-            stmt.setString(2, proposerUuid.toString());
-            stmt.setString(3, text);
-            stmt.setString(4, lawType);
-            stmt.setString(5, lawValue);
-            stmt.executeUpdate();
-            ResultSet keys = stmt.getGeneratedKeys();
-            if (!keys.next()) return -1;
-            return keys.getInt(1);
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error submitting proposal: " + e.getMessage());
-            return -1;
-        }
-    }
-
-    public boolean voteOnProposal(int proposalId, UUID voterUuid, boolean vote) {
-        // Check already voted
-        String checkSql = "SELECT 1 FROM proposal_votes WHERE proposal_id = ? AND voter_uuid = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(checkSql)) {
-            stmt.setInt(1, proposalId);
-            stmt.setString(2, voterUuid.toString());
-            if (stmt.executeQuery().next()) return false;
-        } catch (SQLException e) { return false; }
-
-        int power = getVotingPower(voterUuid);
-        if (power == 0) return false;
-
-        String insertSql = "INSERT INTO proposal_votes (proposal_id, voter_uuid, vote, seats_used) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(insertSql)) {
-            stmt.setInt(1, proposalId);
-            stmt.setString(2, voterUuid.toString());
-            stmt.setBoolean(3, vote);
-            stmt.setInt(4, power);
-            stmt.executeUpdate();
-        } catch (SQLException e) { return false; }
-
-        // Update proposal totals
-        String updateSql = vote
-                ? "UPDATE proposals SET yes_votes = yes_votes + ? WHERE id = ?"
-                : "UPDATE proposals SET no_votes = no_votes + ? WHERE id = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(updateSql)) {
-            stmt.setInt(1, power);
-            stmt.setInt(2, proposalId);
-            stmt.executeUpdate();
-        } catch (SQLException e) { }
-
-        // Check if session ends — evaluate proposal after all votes
-        // (we close at end of session, not mid-session)
-        return true;
-    }
-
-    public boolean hasVotedOnProposal(UUID voterUuid, int proposalId) {
-        String sql = "SELECT 1 FROM proposal_votes WHERE proposal_id = ? AND voter_uuid = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setInt(1, proposalId);
-            stmt.setString(2, voterUuid.toString());
-            return stmt.executeQuery().next();
-        } catch (SQLException e) { return false; }
-    }
-
-    public void evaluateProposals(int sessionId) {
-        int totalSeats = getTotalSeats();
-        String sql = "SELECT * FROM proposals WHERE session_id = ? AND status = 'open'";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setInt(1, sessionId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                int yes = rs.getInt("yes_votes");
-                int no = rs.getInt("no_votes");
-                String text = rs.getString("text");
-                String lawType = rs.getString("law_type");
-                String lawValue = rs.getString("law_value");
-                int total = yes + no;
-                if (total == 0) continue;
-
-                boolean passed = yes > no && yes > (totalSeats / 2.0);
-
-                String updateSql = "UPDATE proposals SET status = ? WHERE id = ?";
-                try (PreparedStatement us = plugin.getDatabaseManager().getConnection().prepareStatement(updateSql)) {
-                    us.setString(1, passed ? "passed" : "rejected");
-                    us.setInt(2, id);
-                    us.executeUpdate();
-                }
-
-                if (passed) {
-                    enactLaw(text, lawType, lawValue, id);
-                    for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§a§l[Council] §aProposal passed: §f" + text);
-                        p.sendMessage("§7Yes: §a" + yes + " §7| No: §c" + no);
-                    }
-                } else {
-                    for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§c§l[Council] §cProposal rejected: §f" + text);
-                        p.sendMessage("§7Yes: §a" + yes + " §7| No: §c" + no);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error evaluating proposals: " + e.getMessage());
-        }
-    }
-
-    public List<Proposal> getOpenProposals() {
-        List<Proposal> proposals = new ArrayList<>();
-        if (!isSessionActive()) return proposals;
-        String sql = "SELECT * FROM proposals WHERE session_id = ? AND status = 'open' ORDER BY proposed_at";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setInt(1, activeSessionId);
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) proposals.add(proposalFromRs(rs));
-        } catch (SQLException e) { }
-        return proposals;
-    }
 
     // ---- Laws ----
 
@@ -710,11 +612,27 @@ public class GovernmentManager {
             case LAW_POLICE_FUND -> {
                 try {
                     double amount = Double.parseDouble(lawValue);
+                    if (!deductFromTreasury(amount)) {
+                        double current = getTreasuryBalance();
+                        for (Player p : plugin.getServer().getOnlinePlayers()) {
+                            p.sendMessage("§4§l[Government] §4Police funding vote passed but the city treasury");
+                            p.sendMessage("§4has insufficient funds! §7(Treasury: §f" +
+                                    plugin.getEconomyManager().format(current) +
+                                    "§7, needed: §f" + plugin.getEconomyManager().format(amount) + "§7)");
+                        }
+                        String voidSql = "UPDATE laws SET is_active = FALSE " +
+                                "WHERE law_type = 'police_fund' ORDER BY passed_at DESC LIMIT 1";
+                        try (PreparedStatement vs = plugin.getDatabaseManager()
+                                .getConnection().prepareStatement(voidSql)) {
+                            vs.executeUpdate();
+                        } catch (SQLException ignored) {}
+                        break;
+                    }
                     plugin.getPoliceBudgetManager().addToBudget(amount);
                     for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§b§l[Police] §fThe city has contributed §b" +
+                        p.sendMessage("§b§l[Police] §fThe city contributed §b" +
                                 plugin.getEconomyManager().format(amount) +
-                                " §fto the police budget.");
+                                " §ffrom the treasury to the police budget.");
                     }
                 } catch (NumberFormatException ignored) { }
             }
@@ -783,7 +701,9 @@ public class GovernmentManager {
 
     public List<Law> getActiveLaws() {
         List<Law> laws = new ArrayList<>();
-        String sql = "SELECT * FROM laws WHERE is_active = TRUE ORDER BY passed_at DESC";
+        String sql = "SELECT * FROM laws WHERE is_active = TRUE " +
+                "AND law_type NOT IN ('pardon', 'repeal_law', 'police_fund') " +
+                "ORDER BY passed_at ASC"; // ASC so newest prints last (visible in chat)
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) laws.add(lawFromRs(rs));

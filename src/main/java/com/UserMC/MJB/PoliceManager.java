@@ -54,6 +54,8 @@ public class PoliceManager {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, appointedBy != null ? appointedBy.toString() : null);
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Error adding officer: " + e.getMessage());
@@ -66,6 +68,8 @@ public class PoliceManager {
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
             stmt.setString(1, uuid.toString());
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Error removing officer: " + e.getMessage());

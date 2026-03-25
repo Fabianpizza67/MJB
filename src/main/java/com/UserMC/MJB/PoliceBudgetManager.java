@@ -188,14 +188,22 @@ public class PoliceBudgetManager {
                         plugin.getServer().getScheduler().runTask(plugin, this::processDailySalaries),
                 oneDayTicks, oneDayTicks);
         // Weekly 2K server top-up
+// Weekly server top-up — goes to city treasury, council decides how to spend it
         long oneWeekTicks = oneDayTicks * 7;
         plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
                         plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            addToBudget(10000.0);
-                            notifySergeants("§b§l[Police Budget] §fThe server has deposited §b$10,000 §finto the police budget.");
+                            String sql = "UPDATE city_treasury SET balance = balance + 10000 WHERE id = 1";
+                            try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
+                                    .getConnection().prepareStatement(sql)) {
+                                stmt.executeUpdate();
+                                for (org.bukkit.entity.Player p : plugin.getServer().getOnlinePlayers()) {
+                                    p.sendMessage("§6§l[Government] §fThe server has deposited §b$10,000 §finto the city treasury.");
+                                }
+                            } catch (java.sql.SQLException e) {
+                                plugin.getLogger().severe("Error adding weekly treasury top-up: " + e.getMessage());
+                            }
                         }),
                 oneWeekTicks, oneWeekTicks);
-        // Weekly city contribution (set by council vote, separate from the base 10K)
         plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
                         plugin.getServer().getScheduler().runTask(plugin, () -> {
                             try {
@@ -203,12 +211,24 @@ public class PoliceBudgetManager {
                                         plugin.getGovernmentManager().getGovernmentSetting(
                                                 "police_weekly_contribution", "0"));
                                 if (contribution > 0) {
-                                    addToBudget(contribution);
-                                    notifySergeants("§b§l[Police Budget] §fThe city contributed §b" +
-                                            plugin.getEconomyManager().format(contribution) +
-                                            " §fto the police budget this week.");
+                                    String deductSql = "UPDATE city_treasury SET balance = balance - ? " +
+                                            "WHERE id = 1 AND balance >= ?";
+                                    try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
+                                            .getConnection().prepareStatement(deductSql)) {
+                                        stmt.setDouble(1, contribution);
+                                        stmt.setDouble(2, contribution);
+                                        if (stmt.executeUpdate() > 0) {
+                                            addToBudget(contribution);
+                                            notifySergeants("§b§l[Police Budget] §fThe city contributed §b" +
+                                                    plugin.getEconomyManager().format(contribution) +
+                                                    " §ffrom the treasury to the police budget this week.");
+                                        } else {
+                                            notifySergeants("§4§l[Police Budget] §4Weekly city contribution failed " +
+                                                    "— city treasury has insufficient funds!");
+                                        }
+                                    }
                                 }
-                            } catch (NumberFormatException ignored) { }
+                            } catch (Exception ignored) { }
                         }),
                 oneWeekTicks, oneWeekTicks);
     }

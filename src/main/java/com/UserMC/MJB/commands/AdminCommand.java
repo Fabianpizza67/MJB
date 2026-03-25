@@ -659,10 +659,8 @@ public class AdminCommand implements CommandExecutor {
             }
 
             case "closesession" -> {
-                int sessionId = MJB.getInstance().getGovernmentManager().getActiveSessionId();
-                MJB.getInstance().getGovernmentManager().evaluateProposals(sessionId);
                 MJB.getInstance().getGovernmentManager().closeSession();
-                player.sendMessage("§fCouncil session closed and proposals evaluated.");
+                player.sendMessage("§fCouncil session closed.");
             }
 
             default -> sendHelp(player);

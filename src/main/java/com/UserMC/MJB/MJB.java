@@ -31,8 +31,9 @@ public class MJB extends JavaPlugin {
     private CrimeManager crimeManager;
     private PoliceBudgetManager policeBudgetManager;
     private GovernmentManager governmentManager;
-    private CouncilListener councilListener;
     private PhoneManager phoneManager;
+    private ProximityChatListener proximityChatListener;
+    private NameTagManager nameTagManager;
 
     @Override
     public void onEnable() {
@@ -82,8 +83,9 @@ public class MJB extends JavaPlugin {
         governmentManager.init();
         governmentManager.startSessionScheduler();
         governmentManager.startElectionScheduler();
-        councilListener = new CouncilListener(this);
         phoneManager = new PhoneManager(this);
+        proximityChatListener = new ProximityChatListener(this);
+        nameTagManager = new NameTagManager(this);
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -107,6 +109,7 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PoliceStationListener(this), this);
         getServer().getPluginManager().registerEvents(new ElectionListener(this), this);
         getServer().getPluginManager().registerEvents(new PhoneListener(this), this);
+        getServer().getPluginManager().registerEvents(proximityChatListener, this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -209,7 +212,7 @@ public class MJB extends JavaPlugin {
     public CrimeManager getCrimeManager() { return crimeManager; }
     public PoliceBudgetManager getPoliceBudgetManager() { return policeBudgetManager; }
     public GovernmentManager getGovernmentManager() { return governmentManager; }
-    public CouncilListener getCouncilListener() { return councilListener; }
     public PhoneManager getPhoneManager() { return phoneManager; }
+    public NameTagManager getNameTagManager() { return nameTagManager; }
 
 }

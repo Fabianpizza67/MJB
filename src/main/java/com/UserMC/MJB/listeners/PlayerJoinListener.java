@@ -45,6 +45,8 @@ public class PlayerJoinListener implements Listener {
                         plugin.getServer().getScheduler().runTaskLater(plugin, () ->
                                 plugin.getPoliceBudgetManager().deliverPendingItems(player), 20L);
                     }
+                    plugin.getServer().getScheduler().runTaskLater(plugin,
+                            () -> plugin.getNameTagManager().refresh(player), 5L);
 
                 }
             }, 20L);

@@ -498,6 +498,9 @@ public class DatabaseManager {
                             "FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE" +
                             ")"
             );
+
+            stmt.execute("INSERT IGNORE INTO police_budget (id, balance) VALUES (1, 2000)");
+
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS church (" +
                             "id INT AUTO_INCREMENT PRIMARY KEY," +

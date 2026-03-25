@@ -81,7 +81,6 @@ public class CompanyManager {
 
             // Add owner as member with owner role
             addMember(companyId, owner.getUniqueId(), "owner", 0);
-
             // Create default roles
             createDefaultRoles(companyId);
 
@@ -119,6 +118,8 @@ public class CompanyManager {
             stmt.setString(3, roleName);
             stmt.setDouble(4, salary);
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Error adding member: " + e.getMessage());
@@ -136,6 +137,8 @@ public class CompanyManager {
             stmt.setInt(1, companyId);
             stmt.setString(2, uuid.toString());
             stmt.executeUpdate();
+            Player p = plugin.getServer().getPlayer(uuid);
+            if (p != null) plugin.getNameTagManager().refresh(p);
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Error removing member: " + e.getMessage());

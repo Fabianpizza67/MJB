@@ -3,7 +3,6 @@ package com.UserMC.MJB.commands;
 import com.UserMC.MJB.GovernmentManager;
 import com.UserMC.MJB.GovernmentManager.*;
 import com.UserMC.MJB.MJB;
-import com.UserMC.MJB.listeners.CouncilListener;
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
@@ -33,14 +32,17 @@ public class GovernmentCommand implements CommandExecutor, TabCompleter {
         // ---- /laws ----
         if (cmd.equals("laws")) {
             List<Law> laws = plugin.getGovernmentManager().getActiveLaws();
-            if (laws.isEmpty()) { player.sendMessage("§7No laws are currently in effect."); return true; }
-            player.sendMessage("§9§l--- Active Laws ---");
+            if (laws.isEmpty()) {
+                player.sendMessage("§7No laws are currently in effect.");
+                return true;
+            }
+            player.sendMessage("§9§l--- Active Laws (" + laws.size() + ") ---");
             for (Law law : laws) {
-                player.sendMessage("§f[" + law.id + "] §b" + law.title);
-                if (!law.lawType.equals(GovernmentManager.LAW_CUSTOM)) {
-                    player.sendMessage("§7  Type: §f" + law.lawType + " §7| Value: §f" + law.lawValue);
-                }
-                player.sendMessage("§7  Passed: §f" + sdf.format(law.passedAt));
+                boolean isCustom = law.lawType.equals(GovernmentManager.LAW_CUSTOM);
+                String detail = isCustom
+                        ? ""
+                        : " §8[" + law.lawType + ": " + law.lawValue + "]";
+                player.sendMessage("§f#" + law.id + " §b" + law.title + detail);
             }
             return true;
         }
@@ -63,93 +65,6 @@ public class GovernmentCommand implements CommandExecutor, TabCompleter {
                     }
                 }
             }
-            return true;
-        }
-
-        // ---- /propose <text> ----
-        if (cmd.equals("propose")) {
-            if (args.length == 0) {
-                player.sendMessage("§4Usage: /propose <your proposal text>");
-                player.sendMessage("§7Example: §f/propose Make guns legal");
-                player.sendMessage("§7Example: §f/propose Set tax rate to 10%");
-                return true;
-            }
-            if (!plugin.getGovernmentManager().isSessionActive()) {
-                player.sendMessage("§4The council is not in session right now.");
-                player.sendMessage("§7Sessions: Wed 16:00 CET | Sat 13:00 CET | Sun 13:00 CET");
-                return true;
-            }
-            if (!plugin.getGovernmentManager().hasSeat(player.getUniqueId())) {
-                player.sendMessage("§4You do not hold a council seat.");
-                return true;
-            }
-            if (!plugin.getGovernmentManager().isInCouncilRegion(player)) {
-                player.sendMessage("§4You must be in the council chamber to propose a law.");
-                return true;
-            }
-
-
-            String text = String.join(" ", args);
-
-            // Auto-detect law type from text
-            String lawType = GovernmentManager.LAW_CUSTOM;
-            String lawValue = "true";
-            String lowerText = text.toLowerCase();
-
-            if (lowerText.contains("gun") || lowerText.contains("weapon")) {
-                lawType = GovernmentManager.LAW_GUNS_LEGAL;
-                lawValue = lowerText.contains("illegal") ? "false" : "true";
-            } else if (lowerText.contains("tax") || lowerText.contains("belasting")) {
-                lawType = GovernmentManager.LAW_TAX_RATE;
-                // Try to extract number
-                for (String word : args) {
-                    try { lawValue = String.valueOf(Double.parseDouble(word.replace("%", ""))); break; }
-                    catch (NumberFormatException ignored) { }
-                }
-            } else if (lowerText.contains("police") && lowerText.contains("defund")) {
-                lawType = GovernmentManager.LAW_POLICE_DEFUNDED;
-                lawValue = "true";
-            } else if (lowerText.startsWith("pardon ")) {
-                lawType = GovernmentManager.LAW_PARDON;
-                lawValue = text.substring(7).trim();
-            } else if (lowerText.contains("repeal")) {
-                lawType = GovernmentManager.LAW_REPEAL;
-                for (String word : args) {
-                    String clean = word.replace("#", "");
-                    try { lawValue = String.valueOf(Integer.parseInt(clean)); break; }
-                    catch (NumberFormatException ignored) { }
-                }
-            } else if (lowerText.contains("police") && (lowerText.contains("fund") || lowerText.contains("give"))) {
-                    lawType = GovernmentManager.LAW_POLICE_FUND;
-                    for (String word : args) {
-                        try { lawValue = String.valueOf(Double.parseDouble(word)); break; }
-                        catch (NumberFormatException ignored) { }
-                    }
-            } else if (lowerText.contains("police") && lowerText.contains("weekly")) {
-                    lawType = GovernmentManager.LAW_POLICE_WEEKLY;
-                    for (String word : args) {
-                        try { lawValue = String.valueOf(Double.parseDouble(word)); break; }
-                        catch (NumberFormatException ignored) { }
-                    }
-                }
-
-            int proposalId = plugin.getGovernmentManager().submitProposal(
-                    player.getUniqueId(), text, lawType, lawValue);
-            if (proposalId == -1) {
-                player.sendMessage("§4Failed to submit proposal.");
-                return true;
-            }
-
-            // Notify council and open voting GUIs
-            List<Proposal> open = plugin.getGovernmentManager().getOpenProposals();
-            for (Proposal p : open) {
-                if (p.id == proposalId) {
-                    plugin.getCouncilListener().broadcastProposal(player, p);
-                    break;
-                }
-            }
-
-            player.sendMessage("§9§l[Council] §fYour proposal has been submitted: §b\"" + text + "\"");
             return true;
         }
 
