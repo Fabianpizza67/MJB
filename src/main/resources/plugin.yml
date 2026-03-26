@@ -74,6 +74,12 @@ commands:
   council:
     description: Council chair commands
     usage: /council <subcommand>
+  acceptsale:
+    description: Accept a pending company sale offer
+    usage: /acceptsale
+  declinesale:
+    description: Decline a pending company sale offer
+    usage: /declinesale
 
 
 permissions:

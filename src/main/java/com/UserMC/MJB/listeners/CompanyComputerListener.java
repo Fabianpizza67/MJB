@@ -513,7 +513,7 @@ public class CompanyComputerListener implements Listener {
                     session.targetUuid = buyer.getUniqueId();
                     session.type = ChatInputType.SELL_PRICE;
                     player.sendMessage("§fBuyer: §b" + buyer.getName());
-                    player.sendMessage("§7Enter the §fsale price §7(taken from buyer's bank), or §fcancel§7:");
+                    player.sendMessage("§7Enter the §fasking price§7, or §fcancel§7:");
                 }
 
                 case SELL_PRICE -> {
@@ -526,16 +526,42 @@ public class CompanyComputerListener implements Listener {
                     Player buyer = plugin.getServer().getPlayer(session.targetUuid);
                     if (buyer == null) { player.sendMessage("§4Buyer went offline. Cancelled."); return; }
 
-                    boolean ok = plugin.getCompanyManager().sellCompany(session.companyId, session.targetUuid, price);
-                    if (!ok) {
-                        player.sendMessage("§4Sale failed. Buyer may not have enough funds.");
+                    CompanyManager.CompanyInfo info = plugin.getCompanyManager()
+                            .getCompanyById(session.companyId);
+                    String companyName = info != null ? info.name : "the company";
+
+                    // Check buyer can afford it
+                    if (plugin.getEconomyManager().getBankBalance(buyer.getUniqueId()) < price) {
+                        player.sendMessage("§4" + buyer.getName() + " cannot afford §f" +
+                                plugin.getEconomyManager().format(price) + "§4.");
                         return;
                     }
-                    CompanyInfo info = plugin.getCompanyManager().getCompanyById(session.companyId);
-                    String companyName = info != null ? info.name : "the company";
-                    player.sendMessage("§b" + companyName + " §fhas been sold to §b" + buyer.getName() +
-                            " §ffor §b" + plugin.getEconomyManager().format(price) + "§f.");
-                    buyer.sendMessage("§b§l[Company] §fYou are now the owner of §b" + companyName + "§f!");
+
+                    // Store pending offer
+                    plugin.getCompanyManager().sendSaleOffer(
+                            session.companyId, player.getUniqueId(), buyer.getUniqueId(), price);
+
+                    player.sendMessage("§fSale offer sent to §b" + buyer.getName() + "§f for §b" +
+                            plugin.getEconomyManager().format(price) + "§f. Expires in §72 minutes§f.");
+
+                    buyer.sendMessage("§b§m-----------------------------");
+                    buyer.sendMessage("§b§l  Company Sale Offer!");
+                    buyer.sendMessage("§b§m-----------------------------");
+                    buyer.sendMessage("§b" + player.getName() + " §fis offering to sell §b" +
+                            companyName + " §fto you for §b" +
+                            plugin.getEconomyManager().format(price) + "§f.");
+                    buyer.sendMessage("§7Type §f/acceptsale §7or §f/declinesale §7to respond.");
+                    buyer.sendMessage("§7This offer expires in §f2 minutes§7.");
+                    buyer.sendMessage("§b§m-----------------------------");
+
+                    // Auto-expire notification to seller
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (plugin.getCompanyManager().getSaleOffer(buyer.getUniqueId()) != null) {
+                            plugin.getCompanyManager().removeSaleOffer(buyer.getUniqueId());
+                            player.sendMessage("§7Your sale offer to §b" + buyer.getName() +
+                                    " §7expired.");
+                        }
+                    }, 20L * 60 * 2);
                 }
             }
         });

@@ -594,16 +594,18 @@ public class CompanyManager {
         return null;
     }
 
-    /**
-     * Returns the company a player is a member of (any role).
-     * Returns null if not in any company.
-     */
     public CompanyInfo getCompanyForPlayer(UUID uuid) {
+        // Order by: owned company first (owner_uuid match), then by join date
+        // This ensures a player always gets their own company tag, not a random one
         String sql = "SELECT c.* FROM companies c " +
                 "JOIN company_members m ON c.id = m.company_id " +
-                "WHERE m.player_uuid = ? LIMIT 1";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+                "WHERE m.player_uuid = ? " +
+                "ORDER BY CASE WHEN c.owner_uuid = ? THEN 0 ELSE 1 END ASC, " +
+                "m.joined_at ASC LIMIT 1";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
             stmt.setString(1, uuid.toString());
+            stmt.setString(2, uuid.toString());
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) return companyFromResultSet(rs);
         } catch (SQLException e) {
@@ -681,6 +683,46 @@ public class CompanyManager {
             this.canAccessBank = canAccessBank;
         }
     }
+    // Add field:
+    private final Map<UUID, CompanySaleOffer> pendingSaleOffers = new HashMap<>();
+
+    public void sendSaleOffer(int companyId, UUID sellerUuid, UUID buyerUuid, double price) {
+        pendingSaleOffers.put(buyerUuid, new CompanySaleOffer(companyId, sellerUuid, buyerUuid,
+                price, System.currentTimeMillis() + 2 * 60 * 1000L));
+    }
+
+    public CompanySaleOffer getSaleOffer(UUID buyerUuid) {
+        CompanySaleOffer offer = pendingSaleOffers.get(buyerUuid);
+        if (offer == null) return null;
+        if (System.currentTimeMillis() > offer.expiresAt) {
+            pendingSaleOffers.remove(buyerUuid);
+            return null;
+        }
+        return offer;
+    }
+
+    public void removeSaleOffer(UUID buyerUuid) {
+        pendingSaleOffers.remove(buyerUuid);
+    }
+
+    // Add inner class:
+    public static class CompanySaleOffer {
+        public final int companyId;
+        public final UUID sellerUuid;  // add this
+        public final UUID buyerUuid;
+        public final double price;
+        public final long expiresAt;
+
+        public CompanySaleOffer(int companyId, UUID sellerUuid, UUID buyerUuid,
+                                double price, long expiresAt) {
+            this.companyId = companyId;
+            this.sellerUuid = sellerUuid;
+            this.buyerUuid = buyerUuid;
+            this.price = price;
+            this.expiresAt = expiresAt;
+        }
+    }
+
     public void sendInvite(int companyId, UUID inviterUuid, UUID targetUuid) {
         pendingInvites.put(targetUuid, new CompanyInvite(companyId, inviterUuid,
                 System.currentTimeMillis() + 5 * 60 * 1000L));

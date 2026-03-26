@@ -34,6 +34,7 @@ public class MJB extends JavaPlugin {
     private PhoneManager phoneManager;
     private ProximityChatListener proximityChatListener;
     private NameTagManager nameTagManager;
+    private TimeSyncManager timeSyncManager;
 
     @Override
     public void onEnable() {
@@ -86,6 +87,8 @@ public class MJB extends JavaPlugin {
         phoneManager = new PhoneManager(this);
         proximityChatListener = new ProximityChatListener(this);
         nameTagManager = new NameTagManager(this);
+        timeSyncManager = new TimeSyncManager(this);
+        timeSyncManager.startSyncScheduler();
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -147,6 +150,8 @@ public class MJB extends JavaPlugin {
         getCommand("government").setExecutor(new GovernmentCommand(this));
         getCommand("council").setExecutor(new CouncilCommand(this));
         getCommand("council").setTabCompleter(new CouncilCommand(this));
+        getCommand("acceptsale").setExecutor(new AcceptSaleCommand(this));
+        getCommand("declinesale").setExecutor(new DeclineSaleCommand(this));
         getCommand("answercall").setExecutor((sender, cmd, label, args) -> {
             if (!(sender instanceof Player player)) return true;
             if (!phoneManager.hasPendingCall(player.getUniqueId())) {
@@ -214,5 +219,6 @@ public class MJB extends JavaPlugin {
     public GovernmentManager getGovernmentManager() { return governmentManager; }
     public PhoneManager getPhoneManager() { return phoneManager; }
     public NameTagManager getNameTagManager() { return nameTagManager; }
+    public TimeSyncManager getTimeSyncManager() { return timeSyncManager; }
 
 }
