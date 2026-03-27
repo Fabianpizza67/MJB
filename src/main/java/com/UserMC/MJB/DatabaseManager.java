@@ -509,6 +509,37 @@ public class DatabaseManager {
                             ")"
             );
 
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS tutorial_progress (" +
+                            "player_uuid VARCHAR(36) PRIMARY KEY," +
+                            "visited_bank BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "claimed_apartment BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "checked_phone BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "visited_gov BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "visited_realestate BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "made_choice BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "completed BOOLEAN NOT NULL DEFAULT FALSE" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS gangs (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "name VARCHAR(64) NOT NULL UNIQUE," +
+                            "leader_uuid VARCHAR(36) NOT NULL," +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS gang_members (" +
+                            "gang_id INT NOT NULL," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (gang_id, player_uuid)," +
+                            "FOREIGN KEY (gang_id) REFERENCES gangs(id) ON DELETE CASCADE" +
+                            ")"
+            );
+
             try {
                 stmt.execute("ALTER TABLE police_officers ADD COLUMN salary DOUBLE NOT NULL DEFAULT 0");
                 plugin.getLogger().info("Added salary column to police_officers.");

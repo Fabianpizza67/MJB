@@ -62,6 +62,7 @@ public class PhoneListener implements Listener {
         if (!plugin.getPhoneManager().isPhone(held)) return;
 
         event.setCancelled(true);
+        plugin.getTutorialManager().onCheckedPhone(player);
         openHomeScreen(player);
     }
 

@@ -48,5 +48,6 @@ public class HousingNPCListener implements Listener {
         player.sendMessage("§c§lRemember: §7You will lose this apartment");
         player.sendMessage("§7once your balance exceeds the threshold!");
         player.sendMessage("§8§m-----------------------------");
+        plugin.getTutorialManager().onClaimedApartment(player);
     }
 }

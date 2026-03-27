@@ -35,6 +35,10 @@ public class MJB extends JavaPlugin {
     private ProximityChatListener proximityChatListener;
     private NameTagManager nameTagManager;
     private TimeSyncManager timeSyncManager;
+    private VehicleManager vehicleManager;
+    private VehicleLicenseListener vehicleLicenseListener;
+    private TutorialManager tutorialManager;
+    private GangManager gangManager;
 
     @Override
     public void onEnable() {
@@ -89,6 +93,8 @@ public class MJB extends JavaPlugin {
         nameTagManager = new NameTagManager(this);
         timeSyncManager = new TimeSyncManager(this);
         timeSyncManager.startSyncScheduler();
+        tutorialManager = new TutorialManager(this);
+        gangManager = new GangManager(this);
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -152,6 +158,10 @@ public class MJB extends JavaPlugin {
         getCommand("council").setTabCompleter(new CouncilCommand(this));
         getCommand("acceptsale").setExecutor(new AcceptSaleCommand(this));
         getCommand("declinesale").setExecutor(new DeclineSaleCommand(this));
+        getCommand("tutorial").setExecutor(new TutorialCommand(this));
+        getCommand("tutorial").setTabCompleter(new TutorialCommand(this));
+        getCommand("gang").setExecutor(new GangCommand(this));
+        getCommand("gang").setTabCompleter(new GangCommand(this));
         getCommand("answercall").setExecutor((sender, cmd, label, args) -> {
             if (!(sender instanceof Player player)) return true;
             if (!phoneManager.hasPendingCall(player.getUniqueId())) {
@@ -183,6 +193,14 @@ public class MJB extends JavaPlugin {
             player.sendMessage("§7Call ended.");
             return true;
         });
+        if (getServer().getPluginManager().getPlugin("MTVehicles") != null) {
+            vehicleManager = new VehicleManager(this);
+            vehicleLicenseListener = new VehicleLicenseListener(this);
+            getServer().getPluginManager().registerEvents(vehicleLicenseListener, this);
+            getLogger().info("MTVehicles detected — vehicle license system enabled.");
+        } else {
+            getLogger().warning("MTVehicles not found — vehicle license system disabled.");
+        }
 
 
         getLogger().info("MJB Enabled succesfully!");
@@ -220,5 +238,8 @@ public class MJB extends JavaPlugin {
     public PhoneManager getPhoneManager() { return phoneManager; }
     public NameTagManager getNameTagManager() { return nameTagManager; }
     public TimeSyncManager getTimeSyncManager() { return timeSyncManager; }
-
+    public VehicleManager getVehicleManager() { return vehicleManager; }
+    public VehicleLicenseListener getVehicleLicenseListener() { return vehicleLicenseListener; }
+    public TutorialManager getTutorialManager() { return tutorialManager; }
+    public GangManager getGangManager() { return gangManager; }
 }

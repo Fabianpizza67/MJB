@@ -29,6 +29,7 @@ public class GovernmentManager {
     public static final String LAW_CUSTOM           = "custom";
     public static final String LAW_POLICE_FUND = "police_fund";
     public static final String LAW_POLICE_WEEKLY = "police_weekly_contribution";
+    public static final String LAW_VEHICLE_LICENSE = "vehicle_license_required";
 
     private static final ZoneId CET = ZoneId.of("Europe/Amsterdam");
 
@@ -609,6 +610,15 @@ public class GovernmentManager {
                 }
             }
 
+            case LAW_VEHICLE_LICENSE -> {
+                setGovernmentSetting(LAW_VEHICLE_LICENSE, lawValue);
+                boolean required = !"false".equals(lawValue);
+                for (Player p : plugin.getServer().getOnlinePlayers()) {
+                    p.sendMessage("§6§l[Government] §fVehicle licenses are now " +
+                            (required ? "§crequired§f." : "§anot required§f."));
+                }
+            }
+
             case LAW_POLICE_FUND -> {
                 try {
                     double amount = Double.parseDouble(lawValue);
@@ -693,6 +703,9 @@ public class GovernmentManager {
 
             case LAW_POLICE_WEEKLY ->
                     setGovernmentSetting("police_weekly_contribution", "0");
+
+            case LAW_VEHICLE_LICENSE ->
+                    setGovernmentSetting(LAW_VEHICLE_LICENSE, "true");
 
             default -> { }
         }

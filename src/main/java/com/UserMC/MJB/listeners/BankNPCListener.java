@@ -43,6 +43,7 @@ public class BankNPCListener implements Listener {
         }
 
         player.sendMessage("§b§m-----------------------------");
+        plugin.getTutorialManager().onVisitedBank(player);
     }
 
     // Checks if player is within range of a bank teller NPC

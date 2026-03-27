@@ -42,6 +42,7 @@ public class RealEstateNPCListener implements Listener {
         NPC npc = event.getNPC();
         if (!npc.data().has(REALESTATE_NPC_TAG)) return;
         openBrowseMenu(event.getClicker());
+        plugin.getTutorialManager().onVisitedRealestate(event.getClicker());
     }
 
     private void openBrowseMenu(Player player) {

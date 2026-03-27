@@ -18,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.NamespacedKey;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.entity.Player;
 
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -43,6 +44,7 @@ public class GovernmentNPCListener implements Listener {
         NPC npc = event.getNPC();
         if (!npc.data().has(GOV_NPC_TAG)) return;
         openGovMenu(event.getClicker());
+        plugin.getTutorialManager().onVisitedGov(event.getClicker());
     }
 
     private void openGovMenu(Player player) {

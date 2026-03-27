@@ -208,6 +208,18 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
                         "true");
             }
 
+            case "vehiclelicense" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /council vehiclelicense <true|false>");
+                    return true;
+                }
+                boolean required = args[1].equalsIgnoreCase("true");
+                enactAndAnnounce(player,
+                        "Vehicle licenses are now " + (required ? "required" : "not required"),
+                        GovernmentManager.LAW_VEHICLE_LICENSE,
+                        String.valueOf(required));
+            }
+
             // ---- Pardon ----
             case "pardon" -> {
                 // /council pardon <player>
@@ -278,6 +290,7 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§f/council defundpolice §7- Stop city police contributions");
         player.sendMessage("§f/council pardon <player> §7- Pardon a player");
         player.sendMessage("§f/council status §7- View current government state");
+        player.sendMessage("§f/council vehiclelicense <true|false> §7- Toggle vehicle license requirement");
     }
 
     @Override
@@ -287,7 +300,7 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
 
         List<String> subs = Arrays.asList("session", "enact", "repeal", "settax",
                 "gunslegal", "setproperty", "fundpolice", "weeklypolice",
-                "defundpolice", "pardon", "status");
+                "defundpolice", "pardon", "status", "vehiclelicense");
 
         if (args.length == 1)
             return subs.stream().filter(s -> s.startsWith(args[0].toLowerCase()))
