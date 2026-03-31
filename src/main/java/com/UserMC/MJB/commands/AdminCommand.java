@@ -2,6 +2,7 @@ package com.UserMC.MJB.commands;
 
 import com.UserMC.MJB.CompanyManager;
 import com.UserMC.MJB.CrimeManager;
+import com.UserMC.MJB.HospitalManager;
 import com.UserMC.MJB.MJB;
 import com.UserMC.MJB.listeners.*;
 import net.citizensnpcs.api.CitizensAPI;
@@ -14,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.Material;
 
 import java.util.List;
+import java.util.UUID;
 
 public class AdminCommand implements CommandExecutor {
 
@@ -623,6 +625,65 @@ public class AdminCommand implements CommandExecutor {
                 player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a police station terminal!");
             }
 
+            case "setdoctor" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin setdoctor <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                boolean ok = MJB.getInstance().getHospitalManager()
+                        .addDoctor(target.getUniqueId(), player.getUniqueId());
+                if (ok) {
+                    player.sendMessage("§f" + target.getName() + " §fis now a hospital doctor.");
+                    target.sendMessage("§b§l[Hospital] §fYou have been appointed as a hospital doctor.");
+                } else {
+                    player.sendMessage("§4Failed.");
+                }
+            }
+
+            case "removedoctor" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin removedoctor <player>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                boolean ok = MJB.getInstance().getHospitalManager()
+                        .removeDoctor(target.getUniqueId());
+                player.sendMessage(ok
+                        ? "§f" + target.getName() + " §fhas been removed as a doctor."
+                        : "§4Failed.");
+                if (ok && target.isOnline()) {
+                    target.sendMessage("§4§l[Hospital] §4You have been removed as a hospital doctor.");
+                }
+            }
+
+            case "listdoctors" -> {
+                var doctors = MJB.getInstance().getHospitalManager().getAllDoctors();
+                if (doctors.isEmpty()) {
+                    player.sendMessage("§7No doctors appointed.");
+                    return true;
+                }
+                player.sendMessage("§b§l--- Hospital Doctors ---");
+                for (UUID uuid : doctors) {
+                    String name = MJB.getInstance().getServer().getOfflinePlayer(uuid).getName();
+                    player.sendMessage("§f- §b" + (name != null ? name : uuid.toString()));
+                }
+            }
+
+            case "sethospital" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin sethospital <npc_id>");
+                    return true;
+                }
+                net.citizensnpcs.api.npc.NPC npc = getNPC(player, args[1]);
+                if (npc == null) return true;
+                npc.data().setPersistent(
+                        com.UserMC.MJB.listeners.HospitalNPCListener.HOSPITAL_NPC_TAG, true);
+                player.sendMessage("§fNPC §b" + npc.getName() + " §fis now the hospital terminal!");
+            }
+
             case "setvotingbooth" -> {
                 // /mjbadmin setvotingbooth <npc_id>
                 if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin setvotingbooth <npc_id>"); return true; }
@@ -661,6 +722,23 @@ public class AdminCommand implements CommandExecutor {
             case "closesession" -> {
                 MJB.getInstance().getGovernmentManager().closeSession();
                 player.sendMessage("§fCouncil session closed.");
+            }
+            case "sethospitalrank" -> {
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin sethospitalrank <player> <intern|resident|doctor|surgeon|chief>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                if (!MJB.getInstance().getHospitalManager().isDoctor(target.getUniqueId())) {
+                    player.sendMessage("§4" + target.getName() + " is not on the hospital staff. Use /mjbadmin setdoctor first.");
+                    return true;
+                }
+                HospitalManager.HospitalRank rank =
+                        HospitalManager.HospitalRank.fromString(args[2]);
+                MJB.getInstance().getHospitalManager().setRank(target.getUniqueId(), rank);
+                player.sendMessage("§f" + target.getName() + " §fis now a §b" + rank.displayName + "§f.");
+                target.sendMessage("§b§l[Hospital] §fAn admin has set your rank to §b" + rank.displayName + "§f.");
             }
 
             default -> sendHelp(player);
@@ -723,6 +801,11 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin uncuff <player> §7- Emergency uncuff");
         player.sendMessage("§f/mjbadmin setpolicerank <player> <rank> §7- Set officer rank (officer/detective/sergeant)");
         player.sendMessage("§f/mjbadmin setpolicestation <npc_id> §7- Set police station terminal NPC");
+        player.sendMessage("§f/mjbadmin setdoctor <player> §7- Appoint a hospital doctor");
+        player.sendMessage("§f/mjbadmin removedoctor <player> §7- Remove a doctor");
+        player.sendMessage("§f/mjbadmin listdoctors §7- List all doctors");
+        player.sendMessage("§f/mjbadmin sethospital <npc_id> §7- Set hospital terminal NPC");
+        player.sendMessage("§f/mjbadmin sethospitalrank <player> <rank> §7- Set hospital rank");
         player.sendMessage("§f/mjbadmin setvotingbooth <npc_id> §7- Set voting booth NPC");
         player.sendMessage("§f/mjbadmin setcouncilregion §7- Set current region as council chamber");
         player.sendMessage("§f/mjbadmin startelection §7- Force start election");

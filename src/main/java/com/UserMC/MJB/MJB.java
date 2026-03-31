@@ -39,6 +39,9 @@ public class MJB extends JavaPlugin {
     private VehicleLicenseListener vehicleLicenseListener;
     private TutorialManager tutorialManager;
     private GangManager gangManager;
+    private HospitalManager hospitalManager;
+    private HospitalBudgetManager hospitalBudgetManager;
+    private MedicalRecordManager medicalRecordManager;
 
     @Override
     public void onEnable() {
@@ -95,6 +98,13 @@ public class MJB extends JavaPlugin {
         timeSyncManager.startSyncScheduler();
         tutorialManager = new TutorialManager(this);
         gangManager = new GangManager(this);
+        hospitalManager = new HospitalManager(this);
+        hospitalBudgetManager = new HospitalBudgetManager(this);
+        hospitalBudgetManager.startSchedulers();
+        hospitalManager.startBleedoutScheduler();
+        hospitalManager.startCarryScheduler();
+        medicalRecordManager = new MedicalRecordManager(this);
+        medicalRecordManager.startAddictionScheduler();
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -119,6 +129,8 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ElectionListener(this), this);
         getServer().getPluginManager().registerEvents(new PhoneListener(this), this);
         getServer().getPluginManager().registerEvents(proximityChatListener, this);
+        getServer().getPluginManager().registerEvents(new HospitalListener(this), this);
+        getServer().getPluginManager().registerEvents(new HospitalNPCListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -162,6 +174,8 @@ public class MJB extends JavaPlugin {
         getCommand("tutorial").setTabCompleter(new TutorialCommand(this));
         getCommand("gang").setExecutor(new GangCommand(this));
         getCommand("gang").setTabCompleter(new GangCommand(this));
+        getCommand("medrecord").setExecutor(new MedRecordCommand(this));
+        getCommand("medrecord").setTabCompleter(new MedRecordCommand(this));
         getCommand("answercall").setExecutor((sender, cmd, label, args) -> {
             if (!(sender instanceof Player player)) return true;
             if (!phoneManager.hasPendingCall(player.getUniqueId())) {
@@ -201,6 +215,11 @@ public class MJB extends JavaPlugin {
         } else {
             getLogger().warning("MTVehicles not found — vehicle license system disabled.");
         }
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+            for (org.bukkit.OfflinePlayer p : getServer().getOfflinePlayers()) {
+                medicalRecordManager.assignBloodType(p.getUniqueId());
+            }
+        });
 
 
         getLogger().info("MJB Enabled succesfully!");
@@ -242,4 +261,8 @@ public class MJB extends JavaPlugin {
     public VehicleLicenseListener getVehicleLicenseListener() { return vehicleLicenseListener; }
     public TutorialManager getTutorialManager() { return tutorialManager; }
     public GangManager getGangManager() { return gangManager; }
+    public HospitalManager getHospitalManager() { return hospitalManager; }
+    public HospitalBudgetManager getHospitalBudgetManager() { return hospitalBudgetManager; }
+    public MedicalRecordManager getMedicalRecordManager() { return medicalRecordManager; }
+
 }

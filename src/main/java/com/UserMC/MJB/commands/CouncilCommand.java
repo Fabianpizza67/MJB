@@ -208,6 +208,40 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
                         "true");
             }
 
+            case "fundhospital" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /council fundhospital <amount>");
+                    return true;
+                }
+                try {
+                    double amount = Double.parseDouble(args[1]);
+                    enactAndAnnounce(player,
+                            "City contributed §b" + plugin.getEconomyManager().format(amount) +
+                                    "§f to the hospital budget",
+                            GovernmentManager.LAW_HOSPITAL_FUND,
+                            String.valueOf(amount));
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid amount.");
+                }
+            }
+
+            case "weeklyhospital" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /council weeklyhospital <amount>");
+                    return true;
+                }
+                try {
+                    double amount = Double.parseDouble(args[1]);
+                    enactAndAnnounce(player,
+                            "Weekly hospital city contribution set to §b" +
+                                    plugin.getEconomyManager().format(amount),
+                            GovernmentManager.LAW_HOSPITAL_WEEKLY,
+                            String.valueOf(amount));
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid amount.");
+                }
+            }
+
             case "vehiclelicense" -> {
                 if (args.length < 2) {
                     player.sendMessage("§4Usage: /council vehiclelicense <true|false>");
@@ -291,6 +325,8 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§f/council pardon <player> §7- Pardon a player");
         player.sendMessage("§f/council status §7- View current government state");
         player.sendMessage("§f/council vehiclelicense <true|false> §7- Toggle vehicle license requirement");
+        player.sendMessage("§f/council fundhospital <amount> §7- One-time hospital funding");
+        player.sendMessage("§f/council weeklyhospital <amount> §7- Set weekly hospital funding");
     }
 
     @Override

@@ -540,6 +540,79 @@ public class DatabaseManager {
                             ")"
             );
 
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS hospital_budget (" +
+                            "id INT PRIMARY KEY DEFAULT 1," +
+                            "balance DOUBLE NOT NULL DEFAULT 0" +
+                            ")"
+            );
+            stmt.execute("INSERT IGNORE INTO hospital_budget (id, balance) VALUES (1, 0)");
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS hospital_doctors (" +
+                            "uuid VARCHAR(36) PRIMARY KEY," +
+                            "appointed_by VARCHAR(36) DEFAULT NULL," +
+                            "appointed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            try {
+                stmt.execute("ALTER TABLE hospital_doctors ADD COLUMN rank VARCHAR(16) NOT NULL DEFAULT 'INTERN'");
+                stmt.execute("ALTER TABLE hospital_doctors ADD COLUMN salary DOUBLE NOT NULL DEFAULT 0");
+            } catch (SQLException ignored) {}
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS hospital_supply_requests (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "requester_uuid VARCHAR(36) NOT NULL," +
+                            "injury_type VARCHAR(32) NOT NULL," +
+                            "status VARCHAR(16) NOT NULL DEFAULT 'pending'," +
+                            "requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "approved_at TIMESTAMP NULL" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS hospital_pending_deliveries (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "doctor_uuid VARCHAR(36) NOT NULL," +
+                            "injury_type VARCHAR(32) NOT NULL," +
+                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            try {
+                stmt.execute("ALTER TABLE players ADD COLUMN blood_type VARCHAR(4) DEFAULT NULL");
+            } catch (SQLException ignored) {}
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS patient_medical_records (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "patient_uuid VARCHAR(36) NOT NULL," +
+                            "doctor_uuid VARCHAR(36) NOT NULL," +
+                            "injury_type VARCHAR(32) NOT NULL," +
+                            "treatment_cost DOUBLE NOT NULL DEFAULT 0," +
+                            "blood_type_used VARCHAR(4) DEFAULT NULL," +
+                            "morphine_used BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "notes VARCHAR(256) DEFAULT NULL," +
+                            "treated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS morphine_usage (" +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS morphine_addiction (" +
+                            "player_uuid VARCHAR(36) PRIMARY KEY," +
+                            "stage INT NOT NULL DEFAULT 1," +
+                            "last_use TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")"
+            );
+
             try {
                 stmt.execute("ALTER TABLE police_officers ADD COLUMN salary DOUBLE NOT NULL DEFAULT 0");
                 plugin.getLogger().info("Added salary column to police_officers.");

@@ -86,6 +86,9 @@ commands:
   gang:
     description: Gang commands
     usage: /gang <create|disband|invite|kick|leave|accept|decline|info|list>
+  medrecord:
+    description: View a player's medical record
+    usage: /medrecord <player>
 
 
 permissions:

@@ -30,6 +30,8 @@ public class GovernmentManager {
     public static final String LAW_POLICE_FUND = "police_fund";
     public static final String LAW_POLICE_WEEKLY = "police_weekly_contribution";
     public static final String LAW_VEHICLE_LICENSE = "vehicle_license_required";
+    public static final String LAW_HOSPITAL_FUND   = "hospital_fund";
+    public static final String LAW_HOSPITAL_WEEKLY = "hospital_weekly_contribution";
 
     private static final ZoneId CET = ZoneId.of("Europe/Amsterdam");
 
@@ -659,6 +661,45 @@ public class GovernmentManager {
                 } catch (NumberFormatException ignored) { }
             }
 
+            case LAW_HOSPITAL_FUND -> {
+                try {
+                    double amount = Double.parseDouble(lawValue);
+                    if (!deductFromTreasury(amount)) {
+                        double current = getTreasuryBalance();
+                        for (Player p : plugin.getServer().getOnlinePlayers()) {
+                            p.sendMessage("§4§l[Government] §4Hospital funding vote passed but " +
+                                    "treasury has insufficient funds! §7(Treasury: §f" +
+                                    plugin.getEconomyManager().format(current) + "§7)");
+                        }
+                        String voidSql = "UPDATE laws SET is_active = FALSE " +
+                                "WHERE law_type = 'hospital_fund' ORDER BY passed_at DESC LIMIT 1";
+                        try (PreparedStatement vs = plugin.getDatabaseManager()
+                                .getConnection().prepareStatement(voidSql)) {
+                            vs.executeUpdate();
+                        } catch (SQLException ignored) {}
+                        break;
+                    }
+                    plugin.getHospitalBudgetManager().addToBudget(amount);
+                    for (Player p : plugin.getServer().getOnlinePlayers()) {
+                        p.sendMessage("§b§l[Hospital] §fThe city contributed §b" +
+                                plugin.getEconomyManager().format(amount) +
+                                " §ffrom the treasury to the hospital budget.");
+                    }
+                } catch (NumberFormatException ignored) { }
+            }
+
+            case LAW_HOSPITAL_WEEKLY -> {
+                try {
+                    double amount = Double.parseDouble(lawValue);
+                    setGovernmentSetting("hospital_weekly_contribution", String.valueOf(amount));
+                    for (Player p : plugin.getServer().getOnlinePlayers()) {
+                        p.sendMessage("§b§l[Hospital] §fThe city will contribute §b" +
+                                plugin.getEconomyManager().format(amount) +
+                                " §fto the hospital budget every week.");
+                    }
+                } catch (NumberFormatException ignored) { }
+            }
+
             case LAW_REPEAL -> {
                 // lawValue = law ID as string
                 try {
@@ -706,6 +747,9 @@ public class GovernmentManager {
 
             case LAW_VEHICLE_LICENSE ->
                     setGovernmentSetting(LAW_VEHICLE_LICENSE, "true");
+
+            case LAW_HOSPITAL_WEEKLY ->
+                    setGovernmentSetting("hospital_weekly_contribution", "0");
 
             default -> { }
         }

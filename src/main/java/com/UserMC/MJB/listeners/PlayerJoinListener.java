@@ -29,6 +29,12 @@ public class PlayerJoinListener implements Listener {
                 player.getInventory().addItem(
                         plugin.getPhoneManager().createPhone(phoneNumber));
             }
+            plugin.getMedicalRecordManager().assignBloodType(player.getUniqueId());
+            int addictionStage = plugin.getMedicalRecordManager()
+                    .getAddictionStage(player.getUniqueId());
+            if (addictionStage > 0) {
+                plugin.getMedicalRecordManager().applyAddictionEffects(player, addictionStage);
+            }
             plugin.getTutorialManager().initPlayer(player.getUniqueId());
             plugin.getServer().getScheduler().runTaskLater(plugin, () ->
                     plugin.getTutorialManager().sendWelcome(player), 40L);
@@ -45,6 +51,18 @@ public class PlayerJoinListener implements Listener {
                 }
                 plugin.getServer().getScheduler().runTaskLater(plugin,
                         () -> plugin.getNameTagManager().refresh(player), 5L);
+                // Add inside the else block (returning players), after existing code:
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    if (player.getHealth() <= 1.5) {
+                        player.setHealth(20.0);
+                        player.setWalkSpeed(0.2f);
+                        player.sendMessage("§b§l[Hospital] §fYou have recovered from your injuries.");
+                    }
+                }, 10L);
+                if (plugin.getHospitalManager().isDoctor(player.getUniqueId())) {
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () ->
+                            plugin.getHospitalManager().deliverPendingSupplies(player), 20L);
+                }
             }, 20L);
         }
     }

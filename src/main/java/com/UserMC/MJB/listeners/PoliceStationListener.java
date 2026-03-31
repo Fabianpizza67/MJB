@@ -129,43 +129,31 @@ public class PoliceStationListener implements Listener {
     // ---- Budget GUI (sergeant) ----
 
     private void openBudgetMenu(Player player) {
-        Inventory gui = plugin.getServer().createInventory(null, 54, BUDGET_GUI);
+        Inventory gui = plugin.getServer().createInventory(null, 27, BUDGET_GUI);
         double budget = plugin.getPoliceBudgetManager().getBudget();
 
         gui.setItem(4, item(Material.GOLD_BLOCK, "§6§lPolice Budget",
                 "§7Current balance: §f" + plugin.getEconomyManager().format(budget),
-                "§7Server adds §f$2,000 §7per week automatically."));
+                "§7Funded by the city council.",
+                "§7Use §f/council fundpolice §7to add funds."));
 
-        ItemStack depositBtn = item(Material.EMERALD, "§a§lDeposit Funds",
-                "§7Transfer from your personal bank.", "§7Type amount in chat.");
-        setAction(depositBtn, "budget_deposit");
-        gui.setItem(10, depositBtn);
-
-        ItemStack withdrawBtn = item(Material.REDSTONE, "§c§lWithdraw Funds",
-                "§7Transfer to your personal bank.", "§7Type amount in chat.");
-        setAction(withdrawBtn, "budget_withdraw");
-        gui.setItem(12, withdrawBtn);
-
-        // Pending requisitions
+        // Pending requisitions only — no personal bank buttons
         List<PoliceBudgetManager.Requisition> pending =
                 plugin.getPoliceBudgetManager().getPendingRequisitions();
         ItemStack pendingBtn = item(Material.WRITABLE_BOOK,
                 "§f§lPending Requests §7(" + pending.size() + ")",
-                "§7Review and order equipment requests.",
-                "§7Budget deducted on order.");
+                "§7Review and order equipment requests.");
         setAction(pendingBtn, "open_pending");
-        gui.setItem(14, pendingBtn);
+        gui.setItem(11, pendingBtn);
 
-        // Salary management
         ItemStack salaryBtn = item(Material.PLAYER_HEAD, "§f§lSet Salaries",
-                "§7Set daily salary per officer.", "§7Click to open officer list.");
+                "§7Set daily salary per officer.");
         setAction(salaryBtn, "open_salaries");
-        gui.setItem(16, salaryBtn);
+        gui.setItem(15, salaryBtn);
 
-        gui.setItem(45, item(Material.ARROW, "§fBack", "§7Return to station menu."));
+        gui.setItem(22, item(Material.ARROW, "§fBack", "§7Return to station menu."));
         player.openInventory(gui);
     }
-
     // ---- Pending requisitions GUI (sergeant) ----
 
     private void openPendingMenu(Player player) {
@@ -338,16 +326,6 @@ public class PoliceStationListener implements Listener {
             String action = getAction(clicked);
             if (action == null) return;
             switch (action) {
-                case "budget_deposit" -> {
-                    player.closeInventory();
-                    player.sendMessage("§9§lDeposit §7— Type the amount to deposit into the police budget, or §fcancel§7.");
-                    awaitingChat.put(player.getUniqueId(), "budget_deposit");
-                }
-                case "budget_withdraw" -> {
-                    player.closeInventory();
-                    player.sendMessage("§9§lWithdraw §7— Type the amount to withdraw from the police budget, or §fcancel§7.");
-                    awaitingChat.put(player.getUniqueId(), "budget_withdraw");
-                }
                 case "open_pending"  -> openPendingMenu(player);
                 case "open_salaries" -> openSalaryMenu(player);
             }
@@ -386,7 +364,6 @@ public class PoliceStationListener implements Listener {
             try { amount = Double.parseDouble(input); }
             catch (NumberFormatException e) { player.sendMessage("§4Invalid amount."); return; }
             if (amount <= 0) { player.sendMessage("§4Amount must be positive."); return; }
-
             if (session.equals("budget_deposit")) {
                 boolean ok = plugin.getPoliceBudgetManager().depositFromPlayer(player.getUniqueId(), amount);
                 if (ok) player.sendMessage("§aDeposited §f" + plugin.getEconomyManager().format(amount) +
@@ -398,7 +375,6 @@ public class PoliceStationListener implements Listener {
                 if (ok) player.sendMessage("§aWithdrew §f" + plugin.getEconomyManager().format(amount) +
                         " §afrom the police budget.");
                 else player.sendMessage("§4Insufficient police budget balance.");
-
             } else if (session.startsWith("set_salary_")) {
                 UUID targetUuid = UUID.fromString(session.substring(11));
                 plugin.getPoliceBudgetManager().setSalary(targetUuid, amount);

@@ -142,8 +142,14 @@ public class ThirstManager {
                 if (newThirst == 0) {
                     applyThirstEffects(player);
                     // 0.5 hearts damage per drain tick
-                    double newHealth = Math.max(0, player.getHealth() - 1.0);
-                    player.setHealth(newHealth);
+                    double newHealth = player.getHealth() - 1.0;
+                    if (newHealth <= 0) {
+                        // Go downed instead of dying
+                        plugin.getHospitalManager().goDown(player,
+                                HospitalManager.InjuryType.BLEEDING);
+                    } else {
+                        player.setHealth(newHealth);
+                    }
                 } else if (newThirst <= 3) {
                     player.sendMessage("§e§l[Thirst] §eYou are getting thirsty. §7(" + newThirst + "/" + MAX_THIRST + ")");
                 }
