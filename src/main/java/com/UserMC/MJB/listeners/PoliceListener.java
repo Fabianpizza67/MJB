@@ -67,6 +67,7 @@ public class PoliceListener implements Listener {
         }
 
         // ---- Badge: search cuffed player ----
+// ---- Badge: search cuffed player ----
         if (plugin.getPoliceManager().isBadge(held)) {
             event.setCancelled(true);
 
@@ -87,26 +88,47 @@ public class PoliceListener implements Listener {
                         " §fcomplete. §aNo illegal items found.");
                 target.sendMessage("§f§l[Police] §fYou were searched by §b" + officer.getName() +
                         "§f. No illegal items found.");
-                return;
-            }
-            // Give officer an evidence bag
-            ItemStack evidence = plugin.getPoliceManager()
-                    .createEvidenceBag(officer.getName(), seized);
-            officer.getInventory().addItem(evidence);
-
-            officer.sendMessage("§f§l[Police] §fSearch of §b" + target.getName() +
-                    " §fcomplete. §c" + seized.size() + " illegal item(s) seized.");
-            target.sendMessage("§c§l[Police] §c" + officer.getName() +
-                    " seized §f" + seized.size() + " §cillegal item(s) from you!");
-
-            seized.forEach(item -> officer.sendMessage("§7  - §f" + item.getAmount() + "x " +
-                    formatMaterial(item.getType().name())));
-            if (!seized.isEmpty()) {
+            } else {
+                ItemStack evidence = plugin.getPoliceManager()
+                        .createEvidenceBag(officer.getName(), seized);
+                officer.getInventory().addItem(evidence);
+                officer.sendMessage("§f§l[Police] §fSearch of §b" + target.getName() +
+                        " §fcomplete. §c" + seized.size() + " illegal item(s) seized.");
+                target.sendMessage("§c§l[Police] §c" + officer.getName() +
+                        " seized §f" + seized.size() + " §cillegal item(s) from you!");
+                seized.forEach(item -> officer.sendMessage("§7  - §f" + item.getAmount() + "x " +
+                        formatMaterial(item.getType().name())));
                 plugin.getCrimeManager().addOffence(
                         target.getUniqueId(),
-                        "Possession of illegal items (" + seized.size() + " item(s) seized by " + officer.getName() + ")",
+                        "Possession of illegal items (" + seized.size() +
+                                " item(s) seized by " + officer.getName() + ")",
                         officer.getUniqueId()
                 );
+            }
+
+            // Auto-check ID card if the no_id_card law is active
+            if (plugin.getGovernmentManager().isNoIDCardIllegal()) {
+                boolean hasValidID = false;
+                for (ItemStack invItem : target.getInventory().getContents()) {
+                    if (!plugin.getIDCardManager().isIDCard(invItem)) continue;
+                    UUID cardOwner = plugin.getIDCardManager().getCardOwner(invItem);
+                    if (cardOwner != null && cardOwner.equals(target.getUniqueId())
+                            && plugin.getIDCardManager().isCardValid(invItem)) {
+                        hasValidID = true;
+                        break;
+                    }
+                }
+                if (!hasValidID) {
+                    plugin.getCrimeManager().addOffence(
+                            target.getUniqueId(),
+                            "No valid ID card found during search",
+                            officer.getUniqueId()
+                    );
+                    officer.sendMessage("§c§l[Police] §c" + target.getName() +
+                            " §cdoes not carry a valid ID card! Offence added.");
+                    target.sendMessage("§c§l[Police] §cYou were found without a valid ID card. " +
+                            "An offence has been added to your record.");
+                }
             }
         }
     }

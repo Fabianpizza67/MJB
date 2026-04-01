@@ -165,18 +165,6 @@ public class HospitalManager {
         for (Player nearby : plugin.getServer().getOnlinePlayers()) {
             if (nearby.equals(player)) continue;
             if (!nearby.getWorld().equals(player.getWorld())) continue;
-            if (nearby.getLocation().distance(player.getLocation()) > 50) continue;
-            nearby.sendMessage("§c§l[!] §c" + player.getName() +
-                    " §cis down! §7(" + injury.displayName + ")");
-        }
-
-        for (Player p : plugin.getServer().getOnlinePlayers()) {
-            if (plugin.getPoliceManager().isOfficer(p.getUniqueId())) {
-                p.sendMessage("§c§l[Dispatch] §c" + player.getName() +
-                        " §cis down with §f" + injury.displayName +
-                        "§c near §f" + player.getLocation().getBlockX() +
-                        ", " + player.getLocation().getBlockZ() + "§c.");
-            }
         }
     }
 
@@ -194,14 +182,6 @@ public class HospitalManager {
         patient.sendMessage("§7Your items were dropped when you went down — check the scene.");
         doctor.sendMessage("§a§l[Hospital] §aYou successfully treated §f" +
                 patient.getName() + "§a.");
-
-        for (Player p : plugin.getServer().getOnlinePlayers()) {
-            if (p.equals(patient) || p.equals(doctor)) continue;
-            if (!p.getWorld().equals(patient.getWorld())) continue;
-            if (p.getLocation().distance(patient.getLocation()) > 50) continue;
-            p.sendMessage("§a§l[Hospital] §f" + patient.getName() +
-                    " §ahas been treated and is back on their feet!");
-        }
     }
 
     public void actuallyDie(Player player) {

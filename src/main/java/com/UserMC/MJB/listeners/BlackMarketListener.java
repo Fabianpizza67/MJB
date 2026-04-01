@@ -211,11 +211,5 @@ public class BlackMarketListener implements Listener {
             marketNpc.teleport(chosen.location,
                     org.bukkit.event.player.PlayerTeleportEvent.TeleportCause.PLUGIN);
         }
-
-        // Announce to all players
-        for (Player p : plugin.getServer().getOnlinePlayers()) {
-            p.sendMessage("§4§l[Black Market] §7The black market dealer has moved to a new location...");
-            p.sendMessage("§7Ask around or search the city to find them.");
-        }
     }
 }

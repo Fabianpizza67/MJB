@@ -192,13 +192,10 @@ public class PoliceBudgetManager {
         long oneWeekTicks = oneDayTicks * 7;
         plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
                         plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            String sql = "UPDATE city_treasury SET balance = balance + 10000 WHERE id = 1";
+                            String sql = "UPDATE city_treasury SET balance = balance + 25000 WHERE id = 1";
                             try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
                                     .getConnection().prepareStatement(sql)) {
                                 stmt.executeUpdate();
-                                for (org.bukkit.entity.Player p : plugin.getServer().getOnlinePlayers()) {
-                                    p.sendMessage("§6§l[Government] §fThe server has deposited §b$10,000 §finto the city treasury.");
-                                }
                             } catch (java.sql.SQLException e) {
                                 plugin.getLogger().severe("Error adding weekly treasury top-up: " + e.getMessage());
                             }

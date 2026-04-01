@@ -208,10 +208,7 @@ public class CrimeManager {
         int count = 0;
         for (Player p : plugin.getServer().getOnlinePlayers()) {
             if (plugin.getPoliceManager().isOfficer(p.getUniqueId())) {
-                p.sendMessage("§c§l[911] §c" + caller.getName() + "§c: §f" + message);
-                p.sendMessage("§7Location reported: §f" + caller.getWorld().getName() +
-                        " §7near §f" + caller.getLocation().getBlockX() +
-                        ", " + caller.getLocation().getBlockZ());
+                p.sendMessage("§c§l[911] §c" + "§c: §f" + message);
                 count++;
             }
         }

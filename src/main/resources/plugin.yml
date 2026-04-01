@@ -1,5 +1,5 @@
 name: MJB
-version: 0.4.0
+version: 0.6.0
 main: com.UserMC.MJB.MJB
 api-version: "1.21"
 authors: [Fabianpizza]
@@ -83,12 +83,12 @@ commands:
   tutorial:
     description: View your city introduction progress
     usage: /tutorial
-  gang:
-    description: Gang commands
-    usage: /gang <create|disband|invite|kick|leave|accept|decline|info|list>
   medrecord:
     description: View a player's medical record
     usage: /medrecord <player>
+  buyphone:
+    description: Buy a replacement phone (same number, costs $100)
+    usage: /buyphone
 
 
 permissions:

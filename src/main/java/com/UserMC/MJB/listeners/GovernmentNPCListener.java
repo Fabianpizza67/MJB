@@ -31,6 +31,7 @@ public class GovernmentNPCListener implements Listener {
     private static final String GOV_MENU_TITLE    = "§b§lGovernment Office";
     private static final String LICENSE_GUI_TITLE = "§b§lLicenses";
     private static final String MY_LIC_GUI_TITLE  = "§b§lMy Licenses";
+    private static final String ID_SERVICES_GUI = "§b§lID Card Services";
 
     private final SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
     private final Map<UUID, RegistrationSession> regSessions = new HashMap<>();
@@ -57,6 +58,9 @@ public class GovernmentNPCListener implements Listener {
                 "§7Required to operate certain businesses."));
         gui.setItem(15, createItem(Material.BOOK, "§f§lMy Licenses",
                 "§7View and renew your licenses."));
+        gui.setItem(9, createItem(Material.ENCHANTED_BOOK, "§f§lID Card",
+                "§7View your ID card status.",
+                "§7Replace a lost card for §f$300§7."));
         gui.setItem(22, createItem(Material.BARRIER, "§4Close", "§7Close this menu."));
         player.openInventory(gui);
     }
@@ -122,6 +126,9 @@ public class GovernmentNPCListener implements Listener {
                     "§7Browse available licenses to get started."));
         }
 
+
+
+
         int slot = 0;
         for (PlayerLicense license : licenses) {
             if (slot >= 45) break;
@@ -172,13 +179,79 @@ public class GovernmentNPCListener implements Listener {
         player.openInventory(gui);
     }
 
+    private void openIDCardMenu(Player player) {
+        boolean hasValid = plugin.getIDCardManager().playerHasValidIDCard(player);
+        Inventory gui = plugin.getServer().createInventory(null, 27, ID_SERVICES_GUI);
+
+        gui.setItem(4, createItem(Material.BOOK, "§b§lYour ID Card",
+                hasValid ? "§aYou have a valid ID card." : "§4You do not have a valid ID card!",
+                "§7You are required by law to carry your ID.",
+                "§7Hand it to police when asked."));
+
+        ItemStack replaceBtn = createItem(Material.EMERALD, "§f§lReplace ID Card",
+                "§7Reports your current ID as lost and issues a new one.",
+                "§7Your old card will be §cinvalidated§7.",
+                "§7Cost: §b$300",
+                "",
+                "§eClick §7to proceed.");
+        org.bukkit.inventory.meta.ItemMeta replaceMeta = replaceBtn.getItemMeta();
+        replaceMeta.getPersistentDataContainer().set(
+                new org.bukkit.NamespacedKey(plugin, "id_action"),
+                org.bukkit.persistence.PersistentDataType.STRING, "replace_id");
+        replaceBtn.setItemMeta(replaceMeta);
+        gui.setItem(13, replaceBtn);
+
+        gui.setItem(22, createItem(Material.ARROW, "§fBack", "§7Return to government office."));
+        player.openInventory(gui);
+    }
+
+    private void handleIDCardReplace(Player player) {
+        double cost = 300.0;
+        double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
+        if (balance < cost) {
+            player.sendMessage("§4Insufficient bank balance. Replacement costs §f$300§4.");
+            player.closeInventory();
+            return;
+        }
+
+        String sql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
+        try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
+            stmt.setDouble(1, cost);
+            stmt.setString(2, player.getUniqueId().toString());
+            stmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            player.sendMessage("§4An error occurred. Please try again.");
+            plugin.getLogger().severe("ID card replace error: " + e.getMessage());
+            return;
+        }
+
+        int newVersion = plugin.getIDCardManager().incrementCardVersion(player.getUniqueId());
+        if (newVersion == -1) {
+            player.sendMessage("§4An error occurred issuing your new card.");
+            return;
+        }
+
+        player.getInventory().addItem(
+                plugin.getIDCardManager().createIDCard(
+                        player.getUniqueId(), player.getName(), newVersion));
+        player.closeInventory();
+        player.sendMessage("§b§m-----------------------------");
+        player.sendMessage("§b§l  New ID Card Issued");
+        player.sendMessage("§b§m-----------------------------");
+        player.sendMessage("§fYour old ID card is now invalid.");
+        player.sendMessage("§fYour new ID card is in your inventory.");
+        player.sendMessage("§7Cost: §f$300 §7deducted from bank.");
+        player.sendMessage("§b§m-----------------------------");
+    }
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         String title = event.getView().getTitle();
 
         if (!title.equals(GOV_MENU_TITLE) && !title.equals(LICENSE_GUI_TITLE) &&
-                !title.equals(MY_LIC_GUI_TITLE)) return;
+                !title.equals(MY_LIC_GUI_TITLE) && !title.equals(ID_SERVICES_GUI)) return;
 
         event.setCancelled(true);
         ItemStack clicked = event.getCurrentItem();
@@ -189,6 +262,7 @@ public class GovernmentNPCListener implements Listener {
                 case GOLD_BLOCK -> { player.closeInventory(); startCompanyRegistration(player); }
                 case PAPER      -> openLicenseMenu(player);
                 case BOOK       -> openMyLicensesMenu(player);
+                case ENCHANTED_BOOK -> openIDCardMenu(player);
                 case BARRIER    -> player.closeInventory();
             }
             return;
@@ -213,6 +287,17 @@ public class GovernmentNPCListener implements Listener {
             String licType = clicked.getItemMeta().getPersistentDataContainer().get(key, PersistentDataType.STRING);
             handleLicensePurchaseOrRenew(player, licType);
             openMyLicensesMenu(player);
+        }
+
+        if (title.equals(ID_SERVICES_GUI)) {
+            if (clicked.getType() == Material.ARROW) { openGovMenu(player); return; }
+            if (!clicked.hasItemMeta()) return;
+            org.bukkit.NamespacedKey idActionKey =
+                    new org.bukkit.NamespacedKey(plugin, "id_action");
+            String idAction = clicked.getItemMeta().getPersistentDataContainer()
+                    .get(idActionKey, org.bukkit.persistence.PersistentDataType.STRING);
+            if ("replace_id".equals(idAction)) handleIDCardReplace(player);
+            return;
         }
     }
 

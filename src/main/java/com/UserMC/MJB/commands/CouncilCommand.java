@@ -281,6 +281,29 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage("§7Use §f/laws §7to see all active laws.");
             }
 
+            case "noidcard" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /council noidcard <true|false>");
+                    return true;
+                }
+                boolean illegal = args[1].equalsIgnoreCase("true");
+                enactAndAnnounce(player,
+                        "ID card requirement is now " + (illegal ? "enforced" : "not enforced"),
+                        GovernmentManager.LAW_NO_ID_CARD,
+                        String.valueOf(illegal));
+            }
+            case "refuseidcheck" -> {
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /council refuseidcheck <true|false>");
+                    return true;
+                }
+                boolean illegal = args[1].equalsIgnoreCase("true");
+                enactAndAnnounce(player,
+                        "Refusing an ID check is now " + (illegal ? "illegal" : "not illegal"),
+                        GovernmentManager.LAW_REFUSE_ID_CHECK,
+                        String.valueOf(illegal));
+            }
+
             default -> sendHelp(player);
         }
 
@@ -327,6 +350,8 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§f/council vehiclelicense <true|false> §7- Toggle vehicle license requirement");
         player.sendMessage("§f/council fundhospital <amount> §7- One-time hospital funding");
         player.sendMessage("§f/council weeklyhospital <amount> §7- Set weekly hospital funding");
+        player.sendMessage("§f/council noidcard <true|false> §7- Toggle ID card requirement law");
+        player.sendMessage("§f/council refuseidcheck <true|false> §7- Toggle ID refusal law");
     }
 
     @Override
@@ -336,7 +361,8 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
 
         List<String> subs = Arrays.asList("session", "enact", "repeal", "settax",
                 "gunslegal", "setproperty", "fundpolice", "weeklypolice",
-                "defundpolice", "pardon", "status", "vehiclelicense");
+                "defundpolice", "pardon", "status", "vehiclelicense",
+                "fundhospital", "weeklyhospital", "noidcard", "refuseidcheck");
 
         if (args.length == 1)
             return subs.stream().filter(s -> s.startsWith(args[0].toLowerCase()))
@@ -350,6 +376,7 @@ public class CouncilCommand implements CommandExecutor, TabCompleter {
                         .map(Player::getName)
                         .filter(n -> n.toLowerCase().startsWith(args[1].toLowerCase()))
                         .collect(Collectors.toList());
+                case "noidcard", "refuseidcheck" -> Arrays.asList("true", "false");
                 default -> List.of();
             };
         }

@@ -32,6 +32,8 @@ public class GovernmentManager {
     public static final String LAW_VEHICLE_LICENSE = "vehicle_license_required";
     public static final String LAW_HOSPITAL_FUND   = "hospital_fund";
     public static final String LAW_HOSPITAL_WEEKLY = "hospital_weekly_contribution";
+    public static final String LAW_NO_ID_CARD      = "no_id_card";
+    public static final String LAW_REFUSE_ID_CHECK = "refuse_id_check";
 
     private static final ZoneId CET = ZoneId.of("Europe/Amsterdam");
 
@@ -344,8 +346,8 @@ public class GovernmentManager {
 
             // Broadcast
             for (Player p : plugin.getServer().getOnlinePlayers()) {
-                p.sendMessage("§6§l[Election] §eAn election has begun! Visit the voting booth to cast your vote.");
-                p.sendMessage("§7Voting closes in §f24 hours§7. You cannot vote for your own party!");
+                p.sendMessage("§6§l[Election] §eThe elections have started! Visit the voting booth to cast your vote.");
+                p.sendMessage("§7Voting closes in §f24 hours§7.");
             }
 
             // Schedule close after 24 hours
@@ -420,9 +422,6 @@ public class GovernmentManager {
                 stmt.executeUpdate();
             } catch (SQLException e) { }
 
-            for (Player p : plugin.getServer().getOnlinePlayers()) {
-                p.sendMessage("§6§l[Election] §eElection closed with no votes. Government unchanged.");
-            }
             return;
         }
 
@@ -517,11 +516,6 @@ public class GovernmentManager {
             if (!keys.next()) return -1;
             activeSessionId = keys.getInt(1);
 
-            for (Player p : plugin.getServer().getOnlinePlayers()) {
-                p.sendMessage("§9§l[Council] §bA council session is now open!");
-                p.sendMessage("§7Council chairs can now enact laws via §f/council§7.");
-                p.sendMessage("§7Session lasts §f2 hours§7.");
-            }
             // Auto-close after 2 hours
             plugin.getServer().getScheduler().runTaskLater(plugin,
                     this::closeSession, 20L * 60 * 60 * 2);
@@ -541,9 +535,6 @@ public class GovernmentManager {
         } catch (SQLException e) { }
         activeSessionId = -1;
 
-        for (Player p : plugin.getServer().getOnlinePlayers()) {
-            p.sendMessage("§9§l[Council] §7The council session has ended.");
-        }
     }
 
 
@@ -606,352 +597,330 @@ public class GovernmentManager {
                         online.sendMessage("§aYour criminal record has been cleared.");
                     }
                     // Broadcast
-                    for (org.bukkit.entity.Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§6§l[Government] §fThe council has pardoned §b" + lawValue + "§f.");
-                    }
                 }
             }
 
             case LAW_VEHICLE_LICENSE -> {
                 setGovernmentSetting(LAW_VEHICLE_LICENSE, lawValue);
                 boolean required = !"false".equals(lawValue);
-                for (Player p : plugin.getServer().getOnlinePlayers()) {
-                    p.sendMessage("§6§l[Government] §fVehicle licenses are now " +
-                            (required ? "§crequired§f." : "§anot required§f."));
+            }
+
+
+        case LAW_POLICE_FUND -> {
+            try {
+                double amount = Double.parseDouble(lawValue);
+                if (!deductFromTreasury(amount)) {
+                    double current = getTreasuryBalance();
+                    String voidSql = "UPDATE laws SET is_active = FALSE " +
+                            "WHERE law_type = 'police_fund' ORDER BY passed_at DESC LIMIT 1";
+                    try (PreparedStatement vs = plugin.getDatabaseManager()
+                            .getConnection().prepareStatement(voidSql)) {
+                        vs.executeUpdate();
+                    } catch (SQLException ignored) {}
+                    break;
                 }
-            }
+                plugin.getPoliceBudgetManager().addToBudget(amount);
+            } catch (NumberFormatException ignored) { }
+        }
 
-            case LAW_POLICE_FUND -> {
-                try {
-                    double amount = Double.parseDouble(lawValue);
-                    if (!deductFromTreasury(amount)) {
-                        double current = getTreasuryBalance();
-                        for (Player p : plugin.getServer().getOnlinePlayers()) {
-                            p.sendMessage("§4§l[Government] §4Police funding vote passed but the city treasury");
-                            p.sendMessage("§4has insufficient funds! §7(Treasury: §f" +
-                                    plugin.getEconomyManager().format(current) +
-                                    "§7, needed: §f" + plugin.getEconomyManager().format(amount) + "§7)");
-                        }
-                        String voidSql = "UPDATE laws SET is_active = FALSE " +
-                                "WHERE law_type = 'police_fund' ORDER BY passed_at DESC LIMIT 1";
-                        try (PreparedStatement vs = plugin.getDatabaseManager()
-                                .getConnection().prepareStatement(voidSql)) {
-                            vs.executeUpdate();
-                        } catch (SQLException ignored) {}
-                        break;
-                    }
-                    plugin.getPoliceBudgetManager().addToBudget(amount);
-                    for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§b§l[Police] §fThe city contributed §b" +
-                                plugin.getEconomyManager().format(amount) +
-                                " §ffrom the treasury to the police budget.");
-                    }
-                } catch (NumberFormatException ignored) { }
-            }
+        case LAW_POLICE_WEEKLY -> {
+            try {
+                double amount = Double.parseDouble(lawValue);
+                setGovernmentSetting("police_weekly_contribution", String.valueOf(amount));
+            } catch (NumberFormatException ignored) { }
+        }
 
-            case LAW_POLICE_WEEKLY -> {
-                try {
-                    double amount = Double.parseDouble(lawValue);
-                    setGovernmentSetting("police_weekly_contribution", String.valueOf(amount));
-                    for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§b§l[Police] §fThe city will now contribute §b" +
-                                plugin.getEconomyManager().format(amount) +
-                                " §fto the police budget every week.");
-                    }
-                } catch (NumberFormatException ignored) { }
-            }
-
-            case LAW_HOSPITAL_FUND -> {
-                try {
-                    double amount = Double.parseDouble(lawValue);
-                    if (!deductFromTreasury(amount)) {
-                        double current = getTreasuryBalance();
-                        for (Player p : plugin.getServer().getOnlinePlayers()) {
-                            p.sendMessage("§4§l[Government] §4Hospital funding vote passed but " +
-                                    "treasury has insufficient funds! §7(Treasury: §f" +
-                                    plugin.getEconomyManager().format(current) + "§7)");
-                        }
-                        String voidSql = "UPDATE laws SET is_active = FALSE " +
-                                "WHERE law_type = 'hospital_fund' ORDER BY passed_at DESC LIMIT 1";
-                        try (PreparedStatement vs = plugin.getDatabaseManager()
-                                .getConnection().prepareStatement(voidSql)) {
-                            vs.executeUpdate();
-                        } catch (SQLException ignored) {}
-                        break;
-                    }
-                    plugin.getHospitalBudgetManager().addToBudget(amount);
-                    for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§b§l[Hospital] §fThe city contributed §b" +
-                                plugin.getEconomyManager().format(amount) +
-                                " §ffrom the treasury to the hospital budget.");
-                    }
-                } catch (NumberFormatException ignored) { }
-            }
-
-            case LAW_HOSPITAL_WEEKLY -> {
-                try {
-                    double amount = Double.parseDouble(lawValue);
-                    setGovernmentSetting("hospital_weekly_contribution", String.valueOf(amount));
-                    for (Player p : plugin.getServer().getOnlinePlayers()) {
-                        p.sendMessage("§b§l[Hospital] §fThe city will contribute §b" +
-                                plugin.getEconomyManager().format(amount) +
-                                " §fto the hospital budget every week.");
-                    }
-                } catch (NumberFormatException ignored) { }
-            }
-
-            case LAW_REPEAL -> {
-                // lawValue = law ID as string
-                try {
-                    int lawId = Integer.parseInt(lawValue);
-                    String fetchSql = "SELECT law_type, law_value FROM laws WHERE id = ? AND is_active = TRUE";
-                    try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
-                            .getConnection().prepareStatement(fetchSql)) {
-                        stmt.setInt(1, lawId);
-                        java.sql.ResultSet rs = stmt.executeQuery();
-                        if (rs.next()) {
-                            String repealedType  = rs.getString("law_type");
-                            String repealedValue = rs.getString("law_value");
-                            repealLaw(lawId);
-                            undoLawEffect(repealedType, repealedValue);
-                            for (org.bukkit.entity.Player p : plugin.getServer().getOnlinePlayers()) {
-                                p.sendMessage("§6§l[Government] §fLaw #" + lawId + " has been repealed by council vote.");
-                            }
-                        } else {
-                            plugin.getLogger().warning("[Gov] Repeal voted for law #" + lawId + " but law not found or already inactive.");
-                        }
-                    }
-                } catch (NumberFormatException | java.sql.SQLException e) {
-                    plugin.getLogger().severe("Error applying repeal: " + e.getMessage());
+        case LAW_HOSPITAL_FUND -> {
+            try {
+                double amount = Double.parseDouble(lawValue);
+                if (!deductFromTreasury(amount)) {
+                    double current = getTreasuryBalance();
+                    String voidSql = "UPDATE laws SET is_active = FALSE " +
+                            "WHERE law_type = 'hospital_fund' ORDER BY passed_at DESC LIMIT 1";
+                    try (PreparedStatement vs = plugin.getDatabaseManager()
+                            .getConnection().prepareStatement(voidSql)) {
+                        vs.executeUpdate();
+                    } catch (SQLException ignored) {}
+                    break;
                 }
+                plugin.getHospitalBudgetManager().addToBudget(amount);
+            } catch (NumberFormatException ignored) { }
+        }
+
+        case LAW_HOSPITAL_WEEKLY -> {
+            try {
+                double amount = Double.parseDouble(lawValue);
+                setGovernmentSetting("hospital_weekly_contribution", String.valueOf(amount));
+            } catch (NumberFormatException ignored) { }
+        }
+
+        case LAW_NO_ID_CARD ->
+                setGovernmentSetting(LAW_NO_ID_CARD, lawValue);
+        case LAW_REFUSE_ID_CHECK ->
+                setGovernmentSetting(LAW_REFUSE_ID_CHECK, lawValue);
+
+        case LAW_REPEAL -> {
+            // lawValue = law ID as string
+            try {
+                int lawId = Integer.parseInt(lawValue);
+                String fetchSql = "SELECT law_type, law_value FROM laws WHERE id = ? AND is_active = TRUE";
+                try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
+                        .getConnection().prepareStatement(fetchSql)) {
+                    stmt.setInt(1, lawId);
+                    java.sql.ResultSet rs = stmt.executeQuery();
+                    if (rs.next()) {
+                        String repealedType  = rs.getString("law_type");
+                        String repealedValue = rs.getString("law_value");
+                        repealLaw(lawId);
+                        undoLawEffect(repealedType, repealedValue);
+                    } else {
+                        plugin.getLogger().warning("[Gov] Repeal voted for law #" + lawId + " but law not found or already inactive.");
+                    }
+                }
+            } catch (NumberFormatException | java.sql.SQLException e) {
+                plugin.getLogger().severe("Error applying repeal: " + e.getMessage());
             }
         }
     }
+}
 
-    private void undoLawEffect(String lawType, String lawValue) {
-        switch (lawType) {
-            case LAW_GUNS_LEGAL ->
-                    setGovernmentSetting("guns_legal", "false");
+private void undoLawEffect(String lawType, String lawValue) {
+    switch (lawType) {
+        case LAW_GUNS_LEGAL ->
+                setGovernmentSetting("guns_legal", "false");
 
-            case LAW_TAX_RATE ->
-                    setGovernmentSetting("tax_rate", "0");
+        case LAW_TAX_RATE ->
+                setGovernmentSetting("tax_rate", "0");
 
-            case LAW_POLICE_DEFUNDED ->
-                    setGovernmentSetting("police_contribution", "0");
+        case LAW_POLICE_DEFUNDED ->
+                setGovernmentSetting("police_contribution", "0");
 
-            case LAW_PROPERTY_PRICE ->
-                    setGovernmentSetting("property_price_modifier", "1.0");
+        case LAW_PROPERTY_PRICE ->
+                setGovernmentSetting("property_price_modifier", "1.0");
 
-            case LAW_POLICE_WEEKLY ->
-                    setGovernmentSetting("police_weekly_contribution", "0");
+        case LAW_POLICE_WEEKLY ->
+                setGovernmentSetting("police_weekly_contribution", "0");
 
-            case LAW_VEHICLE_LICENSE ->
-                    setGovernmentSetting(LAW_VEHICLE_LICENSE, "true");
+        case LAW_VEHICLE_LICENSE ->
+                setGovernmentSetting(LAW_VEHICLE_LICENSE, "true");
 
-            case LAW_HOSPITAL_WEEKLY ->
-                    setGovernmentSetting("hospital_weekly_contribution", "0");
+        case LAW_HOSPITAL_WEEKLY ->
+                setGovernmentSetting("hospital_weekly_contribution", "0");
+        case LAW_NO_ID_CARD ->
+                setGovernmentSetting(LAW_NO_ID_CARD, "true");
+        case LAW_REFUSE_ID_CHECK ->
+                setGovernmentSetting(LAW_REFUSE_ID_CHECK, "true");
 
-            default -> { }
+        default -> { }
+    }
+}
+
+
+public List<Law> getActiveLaws() {
+    List<Law> laws = new ArrayList<>();
+    String sql = "SELECT * FROM laws WHERE is_active = TRUE " +
+            "AND law_type NOT IN ('pardon', 'repeal_law', 'police_fund') " +
+            "ORDER BY passed_at ASC"; // ASC so newest prints last (visible in chat)
+    try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        ResultSet rs = stmt.executeQuery();
+        while (rs.next()) laws.add(lawFromRs(rs));
+    } catch (SQLException e) { }
+    return laws;
+}
+
+public boolean repealLaw(int lawId) {
+    String sql = "UPDATE laws SET is_active = FALSE WHERE id = ?";
+    try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        stmt.setInt(1, lawId);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) { return false; }
+}
+
+// ---- Government settings (tax rate, guns legal, etc.) ----
+
+public String getGovernmentSetting(String key, String defaultValue) {
+    String sql = "SELECT value FROM government_settings WHERE setting_key = ?";
+    try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        stmt.setString(1, key);
+        ResultSet rs = stmt.executeQuery();
+        if (rs.next()) return rs.getString("value");
+    } catch (SQLException e) { }
+    return defaultValue;
+}
+
+public void setGovernmentSetting(String key, String value) {
+    String sql = "INSERT INTO government_settings (setting_key, value) VALUES (?, ?) " +
+            "ON DUPLICATE KEY UPDATE value = ?";
+    try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        stmt.setString(1, key);
+        stmt.setString(2, value);
+        stmt.setString(3, value);
+        stmt.executeUpdate();
+    } catch (SQLException e) {
+        plugin.getLogger().severe("Error setting government setting: " + e.getMessage());
+    }
+}
+
+public double getTaxRate() {
+    try { return Double.parseDouble(getGovernmentSetting("tax_rate", "0")); }
+    catch (NumberFormatException e) { return 0; }
+}
+
+public boolean areGunsLegal() {
+    return "true".equals(getGovernmentSetting("guns_legal", "false"));
+}
+
+public double getPropertyPriceModifier() {
+    try { return Double.parseDouble(getGovernmentSetting("property_price_modifier", "1.0")); }
+    catch (NumberFormatException e) { return 1.0; }
+}
+
+// Default "true" means both laws are ON unless the council turns them off
+public boolean isNoIDCardIllegal() {
+    return !"false".equals(getGovernmentSetting(LAW_NO_ID_CARD, "true"));
+}
+
+public boolean isRefuseIDCheckIllegal() {
+    return !"false".equals(getGovernmentSetting(LAW_REFUSE_ID_CHECK, "true"));
+}
+
+// ---- Council region ----
+
+public boolean addCouncilRegion(String regionId, String world) {
+    String sql = "INSERT IGNORE INTO council_regions (region_id, world) VALUES (?, ?)";
+    try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        stmt.setString(1, regionId);
+        stmt.setString(2, world);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) { return false; }
+}
+
+public boolean isInCouncilRegion(org.bukkit.entity.Player player) {
+    String regionId = plugin.getPlotManager().getRegionAtPlayer(player);
+    if (regionId == null) return false;
+    String sql = "SELECT 1 FROM council_regions WHERE region_id = ? AND world = ?";
+    try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        stmt.setString(1, regionId);
+        stmt.setString(2, player.getWorld().getName());
+        return stmt.executeQuery().next();
+    } catch (SQLException e) { return false; }
+}
+
+// ---- Scheduled session timer ----
+
+public void startSessionScheduler() {
+    // Check every minute if it's time to open a session
+    plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+        ZonedDateTime now = ZonedDateTime.now(CET);
+        int dayOfWeek = now.getDayOfWeek().getValue(); // 1=Mon, 3=Wed, 6=Sat, 7=Sun
+        int hour = now.getHour();
+        int minute = now.getMinute();
+
+        boolean shouldOpen = false;
+
+        // Wednesday 16:00 CET
+        if (dayOfWeek == 3 && hour == 16 && minute == 0) shouldOpen = true;
+        // Saturday 13:00 CET
+        if (dayOfWeek == 6 && hour == 13 && minute == 0) shouldOpen = true;
+        // Sunday 13:00 CET — only if no election active
+        if (dayOfWeek == 7 && hour == 13 && minute == 0 && !isElectionActive()) shouldOpen = true;
+
+        if (shouldOpen && !isSessionActive()) {
+            plugin.getServer().getScheduler().runTask(plugin, this::openSession);
         }
-    }
 
+        // Sunday election at 14:00 CET every 2 weeks
+        // We'll use a simpler approach — check every 2 weeks from server start
+    }, 0L, 20L * 60); // every minute
+}
 
-    public List<Law> getActiveLaws() {
-        List<Law> laws = new ArrayList<>();
-        String sql = "SELECT * FROM laws WHERE is_active = TRUE " +
-                "AND law_type NOT IN ('pardon', 'repeal_law', 'police_fund') " +
-                "ORDER BY passed_at ASC"; // ASC so newest prints last (visible in chat)
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) laws.add(lawFromRs(rs));
-        } catch (SQLException e) { }
-        return laws;
-    }
-
-    public boolean repealLaw(int lawId) {
-        String sql = "UPDATE laws SET is_active = FALSE WHERE id = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setInt(1, lawId);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) { return false; }
-    }
-
-    // ---- Government settings (tax rate, guns legal, etc.) ----
-
-    public String getGovernmentSetting(String key, String defaultValue) {
-        String sql = "SELECT value FROM government_settings WHERE setting_key = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setString(1, key);
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) return rs.getString("value");
-        } catch (SQLException e) { }
-        return defaultValue;
-    }
-
-    public void setGovernmentSetting(String key, String value) {
-        String sql = "INSERT INTO government_settings (setting_key, value) VALUES (?, ?) " +
-                "ON DUPLICATE KEY UPDATE value = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setString(1, key);
-            stmt.setString(2, value);
-            stmt.setString(3, value);
-            stmt.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error setting government setting: " + e.getMessage());
+public void startElectionScheduler() {
+    // Elections every 2 weeks — check on Sundays at 14:00 CET
+    plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+        ZonedDateTime now = ZonedDateTime.now(CET);
+        if (now.getDayOfWeek().getValue() == 7 && now.getHour() == 0
+                && now.getMinute() == 0 && !isElectionActive()) {
+            plugin.getServer().getScheduler().runTask(plugin, this::startElection);
         }
+    }, 0L, 20L * 60);
+}
+
+// ---- Helpers / fromRs ----
+
+private PartyInfo partyFromRs(ResultSet rs) throws SQLException {
+    return new PartyInfo(
+            rs.getInt("id"),
+            rs.getString("name"),
+            UUID.fromString(rs.getString("leader_uuid")),
+            rs.getString("description"),
+            rs.getTimestamp("created_at")
+    );
+}
+
+private Proposal proposalFromRs(ResultSet rs) throws SQLException {
+    return new Proposal(
+            rs.getInt("id"),
+            rs.getInt("session_id"),
+            UUID.fromString(rs.getString("proposer_uuid")),
+            rs.getString("text"),
+            rs.getString("law_type"),
+            rs.getString("law_value"),
+            rs.getString("status"),
+            rs.getInt("yes_votes"),
+            rs.getInt("no_votes"),
+            rs.getTimestamp("proposed_at")
+    );
+}
+
+private Law lawFromRs(ResultSet rs) throws SQLException {
+    return new Law(
+            rs.getInt("id"),
+            rs.getString("title"),
+            rs.getString("law_type"),
+            rs.getString("law_value"),
+            rs.getTimestamp("passed_at"),
+            rs.getBoolean("is_active")
+    );
+}
+
+// ---- Data classes ----
+
+public static class PartyInfo {
+    public final int id;
+    public final String name;
+    public final UUID leaderUuid;
+    public final String description;
+    public final Timestamp createdAt;
+    public PartyInfo(int id, String name, UUID leaderUuid, String description, Timestamp createdAt) {
+        this.id = id; this.name = name; this.leaderUuid = leaderUuid;
+        this.description = description; this.createdAt = createdAt;
     }
+}
 
-    public double getTaxRate() {
-        try { return Double.parseDouble(getGovernmentSetting("tax_rate", "0")); }
-        catch (NumberFormatException e) { return 0; }
+public static class Proposal {
+    public final int id, sessionId, yesVotes, noVotes;
+    public final UUID proposerUuid;
+    public final String text, lawType, lawValue, status;
+    public final Timestamp proposedAt;
+    public Proposal(int id, int sessionId, UUID proposerUuid, String text, String lawType,
+                    String lawValue, String status, int yesVotes, int noVotes, Timestamp proposedAt) {
+        this.id = id; this.sessionId = sessionId; this.proposerUuid = proposerUuid;
+        this.text = text; this.lawType = lawType; this.lawValue = lawValue;
+        this.status = status; this.yesVotes = yesVotes; this.noVotes = noVotes;
+        this.proposedAt = proposedAt;
     }
+}
 
-    public boolean areGunsLegal() {
-        return "true".equals(getGovernmentSetting("guns_legal", "false"));
+public static class Law {
+    public final int id;
+    public final String title, lawType, lawValue;
+    public final Timestamp passedAt;
+    public final boolean isActive;
+    public Law(int id, String title, String lawType, String lawValue, Timestamp passedAt, boolean isActive) {
+        this.id = id; this.title = title; this.lawType = lawType;
+        this.lawValue = lawValue; this.passedAt = passedAt; this.isActive = isActive;
     }
-
-    public double getPropertyPriceModifier() {
-        try { return Double.parseDouble(getGovernmentSetting("property_price_modifier", "1.0")); }
-        catch (NumberFormatException e) { return 1.0; }
-    }
-
-    // ---- Council region ----
-
-    public boolean addCouncilRegion(String regionId, String world) {
-        String sql = "INSERT IGNORE INTO council_regions (region_id, world) VALUES (?, ?)";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setString(1, regionId);
-            stmt.setString(2, world);
-            stmt.executeUpdate();
-            return true;
-        } catch (SQLException e) { return false; }
-    }
-
-    public boolean isInCouncilRegion(org.bukkit.entity.Player player) {
-        String regionId = plugin.getPlotManager().getRegionAtPlayer(player);
-        if (regionId == null) return false;
-        String sql = "SELECT 1 FROM council_regions WHERE region_id = ? AND world = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setString(1, regionId);
-            stmt.setString(2, player.getWorld().getName());
-            return stmt.executeQuery().next();
-        } catch (SQLException e) { return false; }
-    }
-
-    // ---- Scheduled session timer ----
-
-    public void startSessionScheduler() {
-        // Check every minute if it's time to open a session
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            ZonedDateTime now = ZonedDateTime.now(CET);
-            int dayOfWeek = now.getDayOfWeek().getValue(); // 1=Mon, 3=Wed, 6=Sat, 7=Sun
-            int hour = now.getHour();
-            int minute = now.getMinute();
-
-            boolean shouldOpen = false;
-
-            // Wednesday 16:00 CET
-            if (dayOfWeek == 3 && hour == 16 && minute == 0) shouldOpen = true;
-            // Saturday 13:00 CET
-            if (dayOfWeek == 6 && hour == 13 && minute == 0) shouldOpen = true;
-            // Sunday 13:00 CET — only if no election active
-            if (dayOfWeek == 7 && hour == 13 && minute == 0 && !isElectionActive()) shouldOpen = true;
-
-            if (shouldOpen && !isSessionActive()) {
-                plugin.getServer().getScheduler().runTask(plugin, this::openSession);
-            }
-
-            // Sunday election at 14:00 CET every 2 weeks
-            // We'll use a simpler approach — check every 2 weeks from server start
-        }, 0L, 20L * 60); // every minute
-    }
-
-    public void startElectionScheduler() {
-        // Elections every 2 weeks — check on Sundays at 14:00 CET
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            ZonedDateTime now = ZonedDateTime.now(CET);
-            if (now.getDayOfWeek().getValue() == 7 && now.getHour() == 0
-                    && now.getMinute() == 0 && !isElectionActive()) {
-                plugin.getServer().getScheduler().runTask(plugin, this::startElection);
-            }
-        }, 0L, 20L * 60);
-    }
-
-    // ---- Helpers / fromRs ----
-
-    private PartyInfo partyFromRs(ResultSet rs) throws SQLException {
-        return new PartyInfo(
-                rs.getInt("id"),
-                rs.getString("name"),
-                UUID.fromString(rs.getString("leader_uuid")),
-                rs.getString("description"),
-                rs.getTimestamp("created_at")
-        );
-    }
-
-    private Proposal proposalFromRs(ResultSet rs) throws SQLException {
-        return new Proposal(
-                rs.getInt("id"),
-                rs.getInt("session_id"),
-                UUID.fromString(rs.getString("proposer_uuid")),
-                rs.getString("text"),
-                rs.getString("law_type"),
-                rs.getString("law_value"),
-                rs.getString("status"),
-                rs.getInt("yes_votes"),
-                rs.getInt("no_votes"),
-                rs.getTimestamp("proposed_at")
-        );
-    }
-
-    private Law lawFromRs(ResultSet rs) throws SQLException {
-        return new Law(
-                rs.getInt("id"),
-                rs.getString("title"),
-                rs.getString("law_type"),
-                rs.getString("law_value"),
-                rs.getTimestamp("passed_at"),
-                rs.getBoolean("is_active")
-        );
-    }
-
-    // ---- Data classes ----
-
-    public static class PartyInfo {
-        public final int id;
-        public final String name;
-        public final UUID leaderUuid;
-        public final String description;
-        public final Timestamp createdAt;
-        public PartyInfo(int id, String name, UUID leaderUuid, String description, Timestamp createdAt) {
-            this.id = id; this.name = name; this.leaderUuid = leaderUuid;
-            this.description = description; this.createdAt = createdAt;
-        }
-    }
-
-    public static class Proposal {
-        public final int id, sessionId, yesVotes, noVotes;
-        public final UUID proposerUuid;
-        public final String text, lawType, lawValue, status;
-        public final Timestamp proposedAt;
-        public Proposal(int id, int sessionId, UUID proposerUuid, String text, String lawType,
-                        String lawValue, String status, int yesVotes, int noVotes, Timestamp proposedAt) {
-            this.id = id; this.sessionId = sessionId; this.proposerUuid = proposerUuid;
-            this.text = text; this.lawType = lawType; this.lawValue = lawValue;
-            this.status = status; this.yesVotes = yesVotes; this.noVotes = noVotes;
-            this.proposedAt = proposedAt;
-        }
-    }
-
-    public static class Law {
-        public final int id;
-        public final String title, lawType, lawValue;
-        public final Timestamp passedAt;
-        public final boolean isActive;
-        public Law(int id, String title, String lawType, String lawValue, Timestamp passedAt, boolean isActive) {
-            this.id = id; this.title = title; this.lawType = lawType;
-            this.lawValue = lawValue; this.passedAt = passedAt; this.isActive = isActive;
-        }
-    }
+}
 }

@@ -30,6 +30,10 @@ public class PlayerJoinListener implements Listener {
                         plugin.getPhoneManager().createPhone(phoneNumber));
             }
             plugin.getMedicalRecordManager().assignBloodType(player.getUniqueId());
+            int idVersion = plugin.getIDCardManager().getCurrentCardVersion(player.getUniqueId());
+            player.getInventory().addItem(
+                    plugin.getIDCardManager().createIDCard(
+                            player.getUniqueId(), player.getName(), idVersion));
             int addictionStage = plugin.getMedicalRecordManager()
                     .getAddictionStage(player.getUniqueId());
             if (addictionStage > 0) {
@@ -40,6 +44,15 @@ public class PlayerJoinListener implements Listener {
                     plugin.getTutorialManager().sendWelcome(player), 40L);
         } else {
             plugin.getPlotManager().reclaimStarterIfNeeded(player);
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (!plugin.getIDCardManager().playerHasValidIDCard(player)) {
+                    int version = plugin.getIDCardManager().getCurrentCardVersion(player.getUniqueId());
+                    player.getInventory().addItem(
+                            plugin.getIDCardManager().createIDCard(
+                                    player.getUniqueId(), player.getName(), version));
+                    player.sendMessage("§b§l[City Hall] §fYou have been issued an ID card. Keep it with you!");
+                }
+            }, 20L);
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
                 int thirst = plugin.getThirstManager().getThirst(player.getUniqueId());
                 if (thirst == 0) {

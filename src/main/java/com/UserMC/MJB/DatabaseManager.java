@@ -523,24 +523,6 @@ public class DatabaseManager {
             );
 
             stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS gangs (" +
-                            "id INT AUTO_INCREMENT PRIMARY KEY," +
-                            "name VARCHAR(64) NOT NULL UNIQUE," +
-                            "leader_uuid VARCHAR(36) NOT NULL," +
-                            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
-                            ")"
-            );
-            stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS gang_members (" +
-                            "gang_id INT NOT NULL," +
-                            "player_uuid VARCHAR(36) NOT NULL," +
-                            "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                            "PRIMARY KEY (gang_id, player_uuid)," +
-                            "FOREIGN KEY (gang_id) REFERENCES gangs(id) ON DELETE CASCADE" +
-                            ")"
-            );
-
-            stmt.execute(
                     "CREATE TABLE IF NOT EXISTS hospital_budget (" +
                             "id INT PRIMARY KEY DEFAULT 1," +
                             "balance DOUBLE NOT NULL DEFAULT 0" +
@@ -582,6 +564,11 @@ public class DatabaseManager {
 
             try {
                 stmt.execute("ALTER TABLE players ADD COLUMN blood_type VARCHAR(4) DEFAULT NULL");
+            } catch (SQLException ignored) {}
+
+            try {
+                stmt.execute("ALTER TABLE players ADD COLUMN id_card_version INT NOT NULL DEFAULT 1");
+                plugin.getLogger().info("Added id_card_version column to players table.");
             } catch (SQLException ignored) {}
 
             stmt.execute(
