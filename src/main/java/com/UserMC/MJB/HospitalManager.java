@@ -631,10 +631,11 @@ public class HospitalManager {
             cost = req.injuryType.supplyKitCost;
         } else {
             cost = switch (req.injuryTypeName) {
-                case "BANDAGE"    -> 25.0;
-                case "IV_DRIP"    -> 75.0;
-                case "BLOOD_TEST" -> 50.0;
-                default           -> 50.0;
+                case "BANDAGE"       -> 25.0;
+                case "IV_DRIP"       -> 75.0;
+                case "BLOOD_TEST"    -> 50.0;
+                case "MEDICAL_RADIO" -> 500.0;
+                default              -> 50.0;
             };
         }
 
@@ -657,21 +658,26 @@ public class HospitalManager {
         } else {
             // Special items — BANDAGE, IV_DRIP, BLOOD_TEST
             int qty = switch (req.injuryTypeName) {
-                case "BANDAGE"    -> 5;
-                case "IV_DRIP"    -> 3;
-                case "BLOOD_TEST" -> 5;
-                default           -> 1;
+                case "BANDAGE"       -> 5;
+                case "IV_DRIP"       -> 3;
+                case "BLOOD_TEST"    -> 5;
+                case "MEDICAL_RADIO" -> 1;
+                default              -> 1;
             };
             String medType = switch (req.injuryTypeName) {
-                case "IV_DRIP"    -> "iv_drip";
-                case "BLOOD_TEST" -> "blood_test";
-                default           -> null;
+                case "IV_DRIP"     -> "iv_drip";
+                case "BLOOD_TEST"  -> "blood_test";
+                default            -> null;
             };
 
             if (requester != null) {
                 if ("BANDAGE".equals(req.injuryTypeName)) {
                     for (int i = 0; i < qty; i++)
                         requester.getInventory().addItem(createBandage());
+                } else if ("MEDICAL_RADIO".equals(req.injuryTypeName)) {
+                    requester.getInventory().addItem(
+                            plugin.getRadioManager().createRadio(
+                                    com.UserMC.MJB.RadioManager.CHANNEL_MEDICAL));
                 } else if (medType != null) {
                     for (int i = 0; i < qty; i++) {
                         ItemStack item = createMedicalItem(medType);
@@ -774,6 +780,11 @@ public class HospitalManager {
                         ItemStack item = createMedicalItem("blood_test");
                         if (item != null) doctor.getInventory().addItem(item);
                     }
+                    hadItems = true;
+                } else if ("MEDICAL_RADIO".equals(typeName)) {
+                    doctor.getInventory().addItem(
+                            plugin.getRadioManager().createRadio(
+                                    com.UserMC.MJB.RadioManager.CHANNEL_MEDICAL));
                     hadItems = true;
                 } else {
                     try {

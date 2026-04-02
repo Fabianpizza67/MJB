@@ -618,9 +618,30 @@ public class DatabaseManager {
             } catch (SQLException e) {
                 plugin.getLogger().severe("Error creating black_market_locations table: " + e.getMessage());
             }
-
-// Seed treasury row if not exists
             stmt.execute("INSERT IGNORE INTO city_treasury (id, balance) VALUES (1, 0)");
+
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS jail_sentences (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "sentenced_by VARCHAR(36) NOT NULL," +
+                            "original_minutes INT NOT NULL DEFAULT 0," +
+                            "sentenced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "release_at TIMESTAMP NOT NULL," +
+                            "is_released BOOLEAN NOT NULL DEFAULT FALSE" +
+                            ")"
+            );
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS jail_release_location (" +
+                            "id INT PRIMARY KEY DEFAULT 1," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "x DOUBLE NOT NULL," +
+                            "y DOUBLE NOT NULL," +
+                            "z DOUBLE NOT NULL," +
+                            "yaw FLOAT NOT NULL DEFAULT 0," +
+                            "pitch FLOAT NOT NULL DEFAULT 0" +
+                            ")"
+            );
 
             plugin.getLogger().info("Database tables created/verified.");
         } catch (SQLException e) {

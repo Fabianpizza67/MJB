@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
+import com.UserMC.MJB.RadioManager;
 
 import java.sql.*;
 import java.util.*;
@@ -32,6 +33,7 @@ public class PoliceBudgetManager {
         EQUIPMENT_PRICES.put("ammo_rifle",    150.0);
         EQUIPMENT_PRICES.put("ammo_shotgun",  100.0);
         EQUIPMENT_PRICES.put("uniform",       200.0);
+        EQUIPMENT_PRICES.put("police_radio",  500.0);
 
         EQUIPMENT_NAMES.put("pistol",       "Pistol");
         EQUIPMENT_NAMES.put("rifle",        "Rifle");
@@ -43,6 +45,7 @@ public class PoliceBudgetManager {
         EQUIPMENT_NAMES.put("ammo_rifle",   "Rifle Ammo");
         EQUIPMENT_NAMES.put("ammo_shotgun", "Shotgun Ammo");
         EQUIPMENT_NAMES.put("uniform",      "Police Uniform");
+        EQUIPMENT_NAMES.put("police_radio", "Police Radio");
     }
 
     public PoliceBudgetManager(MJB plugin) {
@@ -366,6 +369,8 @@ public class PoliceBudgetManager {
             case "ammo_rifle"   -> plugin.getWeaponManager().createAmmo(WeaponManager.WeaponType.RIFLE);
             case "ammo_shotgun" -> plugin.getWeaponManager().createAmmo(WeaponManager.WeaponType.SHOTGUN);
             case "uniform"      -> createUniform();
+            case "police_radio"  -> plugin.getRadioManager().createRadio(
+                    RadioManager.CHANNEL_POLICE);
             default -> null;
         };
     }

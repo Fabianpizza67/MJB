@@ -533,6 +533,7 @@ public class PoliceStationListener implements Listener {
             case "baton"        -> Material.STICK;
             case "ammo_pistol", "ammo_rifle", "ammo_shotgun" -> Material.PAPER;
             case "uniform"      -> Material.LEATHER_CHESTPLATE;
+            case "police_radio" -> Material.CLOCK;
             default             -> Material.GRAY_DYE;
         };
     }

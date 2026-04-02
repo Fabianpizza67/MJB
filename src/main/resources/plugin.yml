@@ -89,6 +89,15 @@ commands:
   buyphone:
     description: Buy a replacement phone (same number, costs $100)
     usage: /buyphone
+  judge:
+    description: Judge commands (sentence, release, reduce, list)
+    usage: /judge <sentence|release|reduce|list>
+  radio:
+    description: Transmit a message on your radio
+    usage: /radio [police|medical|dispatch|public] <message>
+  ask:
+    description: Ask Sophie the city guide a question
+    usage: /ask <question>
 
 
 permissions:

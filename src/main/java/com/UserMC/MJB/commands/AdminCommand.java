@@ -741,6 +741,42 @@ public class AdminCommand implements CommandExecutor {
                 target.sendMessage("§b§l[Hospital] §fAn admin has set your rank to §b" + rank.displayName + "§f.");
             }
 
+            case "setjailrelease" -> {
+                // /mjbadmin setjailrelease — stand at the desired release location
+                boolean ok = MJB.getInstance().getJailManager()
+                        .setReleaseLocation(player.getLocation());
+                if (ok) {
+                    player.sendMessage("§fJail release location set to your current position.");
+                    player.sendMessage("§7World: §b" + player.getWorld().getName() +
+                            " §7XYZ: §f" + player.getLocation().getBlockX() +
+                            ", " + player.getLocation().getBlockY() +
+                            ", " + player.getLocation().getBlockZ());
+                } else {
+                    player.sendMessage("§4Failed to set release location.");
+                }
+            }
+
+            case "giveradio" -> {
+                // /mjbadmin giveradio <player> <police|medical|public>
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin giveradio <player> <police|medical|public>");
+                    return true;
+                }
+                Player target = getTarget(player, args[1]);
+                if (target == null) return true;
+                String radioType = args[2].toLowerCase();
+                if (!radioType.equals("police") && !radioType.equals("medical")
+                        && !radioType.equals("public")) {
+                    player.sendMessage("§4Invalid type. Use: police, medical, public");
+                    return true;
+                }
+                target.getInventory().addItem(
+                        MJB.getInstance().getRadioManager().createRadio(radioType));
+                player.sendMessage("§fGave §b" + target.getName() +
+                        " §fa §b" + radioType + " radio§f.");
+                target.sendMessage("§b§l[Radio] §fYou received a §b" + radioType + " radio§f.");
+            }
+
             default -> sendHelp(player);
         }
 
@@ -812,5 +848,7 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin closeelection §7- Force close election + announce results");
         player.sendMessage("§f/mjbadmin opensession §7- Force open council session");
         player.sendMessage("§f/mjbadmin closesession §7- Force close session + evaluate proposals");
+        player.sendMessage("§f/mjbadmin setjailrelease §7- Set the jail release teleport location (stand at it)");
+        player.sendMessage("§f/mjbadmin giveradio <player> <police|medical|public> §7- Give a radio item");
     }
 }

@@ -224,6 +224,13 @@ public class HospitalNPCListener implements Listener {
                 "§eClick §7to submit request.");
         setAction(bloodBtn, "submit_request_BLOOD_TEST");
         gui.setItem(slot++, bloodBtn);
+        // Medical radio
+        ItemStack radioBtn = item(Material.CLOCK, "§aMedical Radio §7(x1)",
+                "§7Encrypted radio for medical channel.",
+                "§7Kit cost: §b$500",
+                "§eClick §7to submit request.");
+        setAction(radioBtn, "submit_request_MEDICAL_RADIO");
+        gui.setItem(slot++, radioBtn);
 
         gui.setItem(45, item(Material.ARROW, "§fBack", "§7Return to main menu."));
         doctor.openInventory(gui);
@@ -253,16 +260,18 @@ public class HospitalNPCListener implements Listener {
                 costDisplay = plugin.getEconomyManager().format(req.injuryType.supplyKitCost);
             } else {
                 displayName = switch (req.injuryTypeName) {
-                    case "BANDAGE"    -> "Bandage Pack (x5)";
-                    case "IV_DRIP"    -> "IV Drip Pack (x3)";
-                    case "BLOOD_TEST" -> "Blood Test Kit (x5)";
-                    default           -> req.injuryTypeName;
+                    case "BANDAGE"       -> "Bandage Pack (x5)";
+                    case "IV_DRIP"       -> "IV Drip Pack (x3)";
+                    case "BLOOD_TEST"    -> "Blood Test Kit (x5)";
+                    case "MEDICAL_RADIO" -> "Medical Radio (x1)";
+                    default              -> req.injuryTypeName;
                 };
                 costDisplay = switch (req.injuryTypeName) {
-                    case "BANDAGE"    -> "$25";
-                    case "IV_DRIP"    -> "$75";
-                    case "BLOOD_TEST" -> "$50";
-                    default           -> "unknown";
+                    case "BANDAGE"       -> "$25";
+                    case "IV_DRIP"       -> "$75";
+                    case "BLOOD_TEST"    -> "$50";
+                    case "MEDICAL_RADIO" -> "$500";
+                    default              -> "unknown";
                 };
             }
 

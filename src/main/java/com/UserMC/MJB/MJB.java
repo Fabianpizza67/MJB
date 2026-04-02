@@ -42,6 +42,9 @@ public class MJB extends JavaPlugin {
     private HospitalBudgetManager hospitalBudgetManager;
     private MedicalRecordManager medicalRecordManager;
     private IDCardManager idCardManager;
+    private JailManager jailManager;
+    private RadioManager radioManager;
+    private SophieManager sophieManager;
 
     @Override
     public void onEnable() {
@@ -105,6 +108,10 @@ public class MJB extends JavaPlugin {
         medicalRecordManager = new MedicalRecordManager(this);
         medicalRecordManager.startAddictionScheduler();
         idCardManager = new IDCardManager(this);
+        radioManager  = new RadioManager(this);
+        sophieManager = new SophieManager(this);
+        jailManager = new JailManager(this);
+        jailManager.recoverPendingReleases();
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -156,26 +163,47 @@ public class MJB extends JavaPlugin {
         getCommand("cancelcard").setExecutor(new CancelCardCommand(this));
 
         getCommand("acceptjob").setExecutor(new AcceptJobCommand(this));
+
         getCommand("declinejob").setExecutor(new DeclineJobCommand(this));
+
         getCommand("police").setExecutor(new PoliceCommand(this));
         getCommand("police").setTabCompleter(new PoliceCommand(this));
+
         getCommand("911").setExecutor(new EmergencyCommand(this));
         getCommand("112").setExecutor(new EmergencyCommand(this));
+
         getCommand("party").setExecutor(new GovernmentCommand(this));
         getCommand("party").setTabCompleter(new GovernmentCommand(this));
+
         getCommand("laws").setExecutor(new GovernmentCommand(this));
+
         getCommand("mayor").setExecutor(new GovernmentCommand(this));
         getCommand("mayor").setTabCompleter(new GovernmentCommand(this));
+
         getCommand("government").setExecutor(new GovernmentCommand(this));
+
         getCommand("council").setExecutor(new CouncilCommand(this));
         getCommand("council").setTabCompleter(new CouncilCommand(this));
+
         getCommand("acceptsale").setExecutor(new AcceptSaleCommand(this));
         getCommand("declinesale").setExecutor(new DeclineSaleCommand(this));
+
         getCommand("tutorial").setExecutor(new TutorialCommand(this));
         getCommand("tutorial").setTabCompleter(new TutorialCommand(this));
+
         getCommand("medrecord").setExecutor(new MedRecordCommand(this));
         getCommand("medrecord").setTabCompleter(new MedRecordCommand(this));
+
         getCommand("buyphone").setExecutor(new BuyPhoneCommand(this));
+
+        getCommand("judge").setExecutor(new JudgeCommand(this));
+        getCommand("judge").setTabCompleter(new JudgeCommand(this));
+
+        getCommand("radio").setExecutor(new RadioCommand(this));
+        getCommand("radio").setTabCompleter(new RadioCommand(this));
+
+        getCommand("ask").setExecutor(new AskCommand(this));
+
         getCommand("answercall").setExecutor((sender, cmd, label, args) -> {
             if (!(sender instanceof Player player)) return true;
             if (!phoneManager.hasPendingCall(player.getUniqueId())) {
@@ -264,5 +292,8 @@ public class MJB extends JavaPlugin {
     public HospitalBudgetManager getHospitalBudgetManager() { return hospitalBudgetManager; }
     public MedicalRecordManager getMedicalRecordManager() { return medicalRecordManager; }
     public IDCardManager getIDCardManager() { return idCardManager; }
+    public JailManager getJailManager() { return jailManager; }
+    public RadioManager getRadioManager()   { return radioManager; }
+    public SophieManager getSophieManager() { return sophieManager; }
 
 }
