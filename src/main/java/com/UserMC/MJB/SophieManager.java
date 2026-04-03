@@ -1,198 +1,234 @@
 package com.UserMC.MJB;
 
+import com.google.gson.*;
 import org.bukkit.entity.Player;
 
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.UUID;
 
 public class SophieManager {
 
     private final MJB plugin;
     private static final String SOPHIE = "§b§lSophie §8(City Guide)§r";
+    private static final String MODEL  = "gemini-3.1-flash-lite-preview";
+    private static final String API_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/" +
+                    MODEL + ":generateContent?key=";
 
     public SophieManager(MJB plugin) {
         this.plugin = plugin;
     }
 
     public void ask(Player player, String question) {
-        String q = question.toLowerCase();
-        String response = detectAndRespond(player, q);
-        player.sendMessage("");
-        player.sendMessage(SOPHIE + " §7»");
-        for (String line : response.split("\n")) {
-            player.sendMessage("§f" + line);
+        String apiKey = plugin.getConfig().getString("ai.gemini_api_key", "");
+        if (apiKey.isEmpty() || apiKey.equals("YOUR_GEMINI_API_KEY_HERE")) {
+            player.sendMessage(SOPHIE + " §7» §cSophie is not configured yet. " +
+                    "Ask an admin to set the API key in config.yml.");
+            return;
         }
-        player.sendMessage("");
+
+        // Build the system prompt with live server data
+        String systemPrompt = buildSystemPrompt(player);
+
+        // Run async so the server doesn't freeze during the HTTP call
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            String response = callGemini(apiKey, systemPrompt, question);
+            // Send result back on the main thread
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                player.sendMessage("");
+                player.sendMessage(SOPHIE + " §7»");
+                // Split response into lines for clean chat display
+                for (String line : response.split("\n")) {
+                    if (!line.isBlank()) {
+                        player.sendMessage("§f" + line.trim());
+                    }
+                }
+                player.sendMessage("");
+            });
+        });
     }
 
-    private String detectAndRespond(Player player, String q) {
+    private String buildSystemPrompt(Player player) {
+        // Gather live server data to include in the prompt
+        StringBuilder sb = new StringBuilder();
+        sb.append("You are Sophie, a friendly and helpful city guide NPC on a Minecraft ");
+        sb.append("city roleplay server called UserMC. ");
+        sb.append("You speak in a warm, approachable tone. Keep answers short (max 5 lines). ");
+        sb.append("Never break character. If you genuinely don't know, say so politely.\n\n");
 
-        // Bank / money
-        if (has(q, "bank", "deposit", "withdraw", "balance", "money",
-                "cash", "atm", "debit", "card")) {
-            return "To manage your money, head to a §bBank Teller NPC§f!\n" +
-                    "Use §b/deposit <amount>§f to put cash in the bank,\n" +
-                    "and §b/withdraw <amount>§f to take it out.\n" +
-                    "Cash drops on death, so keep it safe in the bank! 💰\n" +
-                    "Buy a §bDebit Card§f with §b/buycard§f ($25) to pay at terminals.";
-        }
+        sb.append("=== LIVE SERVER INFO ===\n");
 
-        // Phone
-        if (has(q, "phone", "number", "call", "message", "text",
-                "sms", "contact", "ring")) {
-            String num = plugin.getPhoneManager().getPhoneNumber(player.getUniqueId());
-            String numStr = num != null ? "§b" + num : "§7not assigned yet";
-            return "Your phone number is: " + numStr + "§f.\n" +
-                    "Right-click your §bphone item§f to open it.\n" +
-                    "You can send messages, call players, and manage contacts.\n" +
-                    "Lost your phone? Get a replacement with §b/buyphone§f ($100).";
-        }
+        // Player's own info
+        sb.append("Player asking: ").append(player.getName()).append("\n");
+        String phone = plugin.getPhoneManager().getPhoneNumber(player.getUniqueId());
+        sb.append("Their phone number: ").append(phone != null ? phone : "none").append("\n");
+        boolean hasID = plugin.getIDCardManager().playerHasValidIDCard(player);
+        sb.append("Has valid ID card: ").append(hasID).append("\n");
 
-        // Hospital / medical
-        if (has(q, "hospital", "doctor", "medical", "hurt", "downed", "blood",
-                "morphine", "bandage", "surgery", "bleed", "health", "heal",
-                "iv", "drip", "injured", "ambulance")) {
-            return "If you get downed, you need a §bDoctor§f to treat you!\n" +
-                    "Call for help with §b/911 <message>§f.\n" +
-                    "Doctors can carry you to the hospital and treat your injury.\n" +
-                    "Hospital ranks: Intern → Resident → Doctor → Surgeon → Chief.\n" +
-                    "Blood type matters for treatment — get tested at the hospital!";
-        }
-
-        // Police / crime
-        if (has(q, "police", "arrest", "cuff", "wanted", "crime", "officer",
-                "charge", "illegal", "weapon", "gun", "handcuff", "badge")) {
-            return "The police enforce the law in this city!\n" +
-                    "If you're wanted, an officer may arrest you with §bhandcuffs§f.\n" +
-                    "Call police with §b/911 <message>§f in an emergency.\n" +
-                    "Illegal items (weapons, ammo) can be seized during a search.\n" +
-                    "Always carry your §bID card§f — you are required to by law.\n" +
-                    "Use §b/laws§f to see what's currently legal.";
-        }
-
-        // Laws
-        if (has(q, "law", "legal", "illegal", "rule", "allowed", "banned", "forbidden")) {
-            List<GovernmentManager.Law> laws =
-                    plugin.getGovernmentManager().getActiveLaws();
-            if (laws.isEmpty()) {
-                return "No special laws are in effect right now!\n" +
-                        "Standard rules apply. Stay out of trouble! 😉";
-            }
-            StringBuilder sb = new StringBuilder("Current active laws:\n");
+        // Active laws
+        List<GovernmentManager.Law> laws = plugin.getGovernmentManager().getActiveLaws();
+        if (laws.isEmpty()) {
+            sb.append("Active laws: none currently\n");
+        } else {
+            sb.append("Active laws:\n");
             for (GovernmentManager.Law law : laws) {
-                sb.append("§7• §f").append(law.title).append("\n");
+                sb.append("  - ").append(law.title).append("\n");
             }
-            sb.append("Use §b/laws§f anytime for the full list!");
-            return sb.toString();
         }
 
-        // ID card
-        if (has(q, "id", "identification", "identity", "passport", "id card")) {
-            boolean hasId = plugin.getIDCardManager().playerHasValidIDCard(player);
-            return "Your ID card is an official §bCity Hall document§f.\n" +
-                    "You " + (hasId ? "§acurrently have§f" : "§cdo NOT have§f") +
-                    " a valid ID card.\n" +
-                    "You are required by law to carry it at all times.\n" +
-                    "Lost it? Visit the §bGovernment Office NPC§f for a replacement ($300).";
-        }
+        // Mayor
+        java.util.UUID mayorUuid = plugin.getGovernmentManager().getMayorUuid();
+        String mayorName = mayorUuid != null
+                ? plugin.getServer().getOfflinePlayer(mayorUuid).getName()
+                : "none";
+        sb.append("Current mayor: ").append(mayorName).append("\n");
 
-        // Licenses
-        if (has(q, "license", "licence", "driver", "pilot", "boat",
-                "vehicle", "car", "drive", "fly", "driving")) {
-            return "Licenses let you operate vehicles and run businesses legally!\n" +
-                    "Visit the §bGovernment Office NPC§f to browse and buy licenses.\n" +
-                    "Types include: Driver's, Pilot's, Boat License, and more.\n" +
-                    "Licenses expire after §b30 days§f — renew before they run out!\n" +
-                    "Check yours at the Government Office NPC.";
-        }
+        // Guns legal
+        sb.append("Guns currently legal: ")
+                .append(plugin.getGovernmentManager().areGunsLegal()).append("\n");
 
-        // Company / job / work
-        if (has(q, "company", "job", "work", "employ", "boss", "hire",
-                "salary", "business", "register", "employee")) {
-            return "Want to work? Ask a company owner to hire you!\n" +
-                    "You'll get a §b/acceptjob§f invite when they send an offer.\n" +
-                    "Want your own business? Visit the §bGovernment Office NPC§f\n" +
-                    "to register a company. Manage it from your §bcomputer terminal§f\n" +
-                    "(right-click a green glazed terracotta block).\n" +
-                    "Your salary is paid daily from the company bank!";
-        }
+        // Tax rate
+        sb.append("Tax rate: ").append(plugin.getGovernmentManager().getTaxRate())
+                .append("%\n");
 
-        // Housing / property
-        if (has(q, "apartment", "house", "home", "property", "plot",
-                "live", "room", "flat", "estate", "housing")) {
-            return "New to the city? Claim your §bfree starter apartment§f\n" +
-                    "from the §bHousing NPC§f near spawn!\n" +
-                    "Want to upgrade? Visit the §bReal Estate Office NPC§f\n" +
-                    "or browse from your §bcomputer terminal§f.\n" +
-                    "You need a Real Estate License to list your own property for sale.";
-        }
+        sb.append("\n=== SERVER SYSTEMS ===\n");
+        sb.append("- Bank: /deposit, /withdraw at bank teller NPC. /buycard $25 for debit card.\n");
+        sb.append("- Phone: right-click phone item. /buyphone $100 for replacement.\n");
+        sb.append("- ID card: required by law. Free on join, $300 replacement at Gov NPC.\n");
+        sb.append("- Hospital: doctors treat downed players. Call /911 for help.\n");
+        sb.append("- Police: can arrest with handcuffs, search with badge. /911 for emergencies.\n");
+        sb.append("- Housing: claim free starter apartment at Housing NPC near spawn.\n");
+        sb.append("- Jobs: get hired with /acceptjob, or register a company at Gov NPC.\n");
+        sb.append("- Licenses: buy at Government Office NPC. Expire after 30 days.\n");
+        sb.append("- Radio: hold radio item and use /radio <message> to transmit.\n");
+        sb.append("- Jail: judge can sentence players. Timer runs even offline.\n");
+        sb.append("- Gangs: /gang create, /gang list. Social only, no game effects.\n");
+        sb.append("- Supply orders: order stock from computer terminal (green terracotta).\n");
+        sb.append("- Tutorial: /tutorial to see getting started checklist.\n");
 
-        // Gang
-        if (has(q, "gang", "crew", "faction")) {
-            return "Gangs are social groups you can form with friends!\n" +
-                    "Use §b/gang create <name>§f to start one,\n" +
-                    "or §b/gang list§f to see all existing gangs.\n" +
-                    "Gangs are purely social — no special powers, just community! 🤝";
-        }
+        return sb.toString();
+    }
 
-        // Radio
-        if (has(q, "radio", "frequency", "channel", "transmit", "broadcast")) {
-            return "Radios let you communicate over long distances (200 blocks)!\n" +
-                    "Hold your radio and use §b/radio <message>§f to transmit.\n" +
-                    "Channels: §9Police§f, §aMedical§f, §6Dispatch§f, §fPublic§f.\n" +
-                    "Police and Medical radios are encrypted.\n" +
-                    "Request one through the police station or hospital terminal!";
-        }
+    private String callGemini(String apiKey, String systemPrompt, String question) {
+        try {
+            URL url = new URL(API_URL + apiKey);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(10000);
 
-        // Jail / court
-        if (has(q, "jail", "prison", "sentence", "convicted", "court", "judge")) {
-            return "If you break the law, the §bJudge§f can sentence you to jail time!\n" +
-                    "Sentences run even while you're offline.\n" +
-                    "When your sentence ends, you'll be released and notified.\n" +
-                    "Officers will return any confiscated items on release.";
-        }
+            // Build JSON body
+            JsonObject body = new JsonObject();
 
-        // Tutorial / help / new player
-        if (has(q, "tutorial", "start", "help", "new", "beginner",
-                "guide", "how", "what do i")) {
-            return "Welcome to the city! 🏙️\n" +
-                    "Use §b/tutorial§f to see your getting-started checklist.\n" +
-                    "It covers the bank, apartment, phone, government, and more!\n" +
-                    "You can always ask me anything with §b/ask <question>§f.";
-        }
+            // System instruction
+            JsonObject systemInstruction = new JsonObject();
+            JsonObject systemPart = new JsonObject();
+            systemPart.addProperty("text", systemPrompt);
+            JsonArray systemParts = new JsonArray();
+            systemParts.add(systemPart);
+            systemInstruction.add("parts", systemParts);
+            body.add("systemInstruction", systemInstruction);
 
-        // Government / politics
-        if (has(q, "government", "party", "election", "vote", "mayor",
-                "council", "politic", "parliament")) {
-            UUID mayorUuid = plugin.getGovernmentManager().getMayorUuid();
-            String mayorStr = mayorUuid != null
-                    ? "§b" + plugin.getServer().getOfflinePlayer(mayorUuid).getName()
-                    : "§7nobody yet";
-            return "The city is governed by elected parties!\n" +
-                    "Current mayor: " + mayorStr + "§f.\n" +
-                    "Use §b/party§f to create or join a political party.\n" +
-                    "Elections happen every 2 weeks — vote at the §bVoting Booth NPC§f.\n" +
-                    "Use §b/government§f to see current status.";
-        }
+            // User message
+            JsonObject userPart = new JsonObject();
+            userPart.addProperty("text", question);
+            JsonArray userParts = new JsonArray();
+            userParts.add(userPart);
+            JsonObject content = new JsonObject();
+            content.addProperty("role", "user");
+            content.add("parts", userParts);
+            JsonArray contents = new JsonArray();
+            contents.add(content);
+            body.add("contents", contents);
 
-        // Supply orders
-        if (has(q, "supply", "order", "stock", "delivery", "warehouse")) {
-            return "Companies can order supplies through their §bcomputer terminal§f!\n" +
-                    "Right-click a green glazed terracotta block to access it.\n" +
-                    "You need the right licenses to order certain items.\n" +
-                    "Orders take time to arrive — check §bMy Orders§f on the computer.";
-        }
+            // Generation config — keep responses short
+            JsonObject genConfig = new JsonObject();
+            genConfig.addProperty("maxOutputTokens", 200);
+            genConfig.addProperty("temperature", 0.7);
+            body.add("generationConfig", genConfig);
 
-        // Fallback
-        return "Hmm, I'm not sure about that one! 🤔\n" +
-                "Try asking something more specific, or use §b/tutorial§f\n" +
-                "for a full guide to the city. Other players might know too!";
+            // Send request
+            try (OutputStream os = conn.getOutputStream()) {
+                os.write(body.toString().getBytes(StandardCharsets.UTF_8));
+            }
+
+            int status = conn.getResponseCode();
+
+            // Handle rate limit / quota exceeded
+            if (status == 429) {
+                plugin.getLogger().warning("[Sophie] Gemini API rate limit hit (429).");
+                return "I'm a little overwhelmed right now — too many questions! " +
+                        "Try again in a minute, or use /tutorial for the basics.";
+            }
+
+            // Handle other errors
+            if (status != 200) {
+                plugin.getLogger().warning("[Sophie] Gemini API returned status " + status);
+                return handleFallback(question);
+            }
+
+            // Read response
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+            }
+
+            // Parse response
+            JsonObject json = JsonParser.parseString(response.toString()).getAsJsonObject();
+            JsonArray candidates = json.getAsJsonArray("candidates");
+            if (candidates == null || candidates.isEmpty()) {
+                return handleFallback(question);
+            }
+            JsonObject candidate = candidates.get(0).getAsJsonObject();
+            JsonObject contentObj = candidate.getAsJsonObject("content");
+            JsonArray parts = contentObj.getAsJsonArray("parts");
+            if (parts == null || parts.isEmpty()) {
+                return handleFallback(question);
+            }
+            return parts.get(0).getAsJsonObject().get("text").getAsString().trim();
+
+        } catch (java.net.SocketTimeoutException e) {
+            plugin.getLogger().warning("[Sophie] Gemini API timed out.");
+            return "Sorry, I'm taking too long to respond right now! " +
+                    "Try /tutorial or ask another player for help.";
+        } catch (Exception e) {
+            plugin.getLogger().warning("[Sophie] Gemini API error: " + e.getMessage());
+            return handleFallback(question);
+        }
+    }
+
+    // Fallback for when the API is unavailable — basic keyword responses
+    private String handleFallback(String question) {
+        String q = question.toLowerCase();
+        if (has(q, "bank", "deposit", "withdraw", "money", "cash"))
+            return "Head to a Bank Teller NPC to manage your money! " +
+                    "Use /deposit and /withdraw. Buy a debit card with /buycard.";
+        if (has(q, "phone", "call", "message"))
+            return "Right-click your phone item to open it! " +
+                    "Lost it? Use /buyphone for a $100 replacement.";
+        if (has(q, "hospital", "doctor", "hurt", "downed"))
+            return "Call /911 if you're in trouble! " +
+                    "Doctors can treat you at the hospital.";
+        if (has(q, "police", "arrest", "crime", "wanted"))
+            return "The police enforce the law. Use /911 in emergencies. " +
+                    "Always carry your ID card!";
+        if (has(q, "law", "legal", "rule"))
+            return "Use /laws to see all currently active laws in the city!";
+        return "Hmm, I can't reach my notes right now! " +
+                "Try /tutorial or ask another player for help.";
     }
 
     private boolean has(String text, String... keywords) {
-        for (String kw : keywords) {
-            if (text.contains(kw)) return true;
-        }
+        for (String kw : keywords) if (text.contains(kw)) return true;
         return false;
     }
 }

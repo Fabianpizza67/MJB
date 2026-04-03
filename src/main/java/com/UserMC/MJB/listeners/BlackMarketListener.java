@@ -1,5 +1,6 @@
 package com.UserMC.MJB.listeners;
 
+import com.UserMC.MJB.DrugManager;
 import com.UserMC.MJB.MJB;
 import com.UserMC.MJB.WeaponManager;
 import com.UserMC.MJB.WeaponManager.WeaponType;
@@ -66,6 +67,24 @@ public class BlackMarketListener implements Listener {
         gui.setItem(28, ammoItem(WeaponType.PISTOL));
         gui.setItem(30, ammoItem(WeaponType.RIFLE));
         gui.setItem(32, ammoItem(WeaponType.SHOTGUN));
+        // Drug section separator
+        gui.setItem(36, info(Material.RED_STAINED_GLASS_PANE,
+                "§c§lDrugs", "§7Illegal substances.", "§7Use at your own risk."));
+
+        gui.setItem(37, drugItem(DrugManager.DrugType.WEED));
+        gui.setItem(38, drugItem(DrugManager.DrugType.COCAINE));
+        gui.setItem(39, drugItem(DrugManager.DrugType.HEROIN));
+        gui.setItem(40, drugItem(DrugManager.DrugType.MORPHINE));
+        gui.setItem(41, drugItem(DrugManager.DrugType.FENTANYL));
+
+// Seeds section
+        gui.setItem(43, info(Material.GRASS_BLOCK, "§a§lDrug Seeds",
+                "§7Plant and grow your own supply.",
+                "§7Right-click on grass or dirt to plant.",
+                "§7Harvest every §f4 hours§7."));
+        gui.setItem(44, seedItem(DrugManager.DrugType.WEED));
+        gui.setItem(45, seedItem(DrugManager.DrugType.COCAINE));
+        gui.setItem(46, seedItem(DrugManager.DrugType.HEROIN));
 
         gui.setItem(49, info(Material.BARRIER, "§4Leave", "§7Close the black market."));
 
@@ -97,6 +116,38 @@ public class BlackMarketListener implements Listener {
         lore.add("§eClick §7to purchase");
         meta.setLore(lore);
         meta.getPersistentDataContainer().set(SHOP_ITEM_KEY, PersistentDataType.STRING, "ammo_" + type.id);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack drugItem(DrugManager.DrugType type) {
+        ItemStack item = plugin.getDrugManager().createDrug(type);
+        ItemMeta meta = item.getItemMeta();
+        List<String> lore = new ArrayList<>(
+                meta.getLore() != null ? meta.getLore() : new ArrayList<>());
+        lore.add("");
+        lore.add("§7Price: §b" + plugin.getEconomyManager().format(type.blackMarketPrice));
+        lore.add("§eClick §7to purchase");
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(SHOP_ITEM_KEY,
+                PersistentDataType.STRING, "drug_" + type.name());
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack seedItem(DrugManager.DrugType type) {
+        ItemStack item = plugin.getDrugManager().createSeed(type);
+        if (item == null) return info(Material.BARRIER, "§8N/A", "§7No seed available.");
+        ItemMeta meta = item.getItemMeta();
+        List<String> lore = new ArrayList<>(
+                meta.getLore() != null ? meta.getLore() : new ArrayList<>());
+        lore.add("");
+        lore.add("§7Price: §b" + plugin.getEconomyManager()
+                .format(type.blackMarketPrice * 0.5));
+        lore.add("§eClick §7to purchase");
+        meta.setLore(lore);
+        meta.getPersistentDataContainer().set(SHOP_ITEM_KEY,
+                PersistentDataType.STRING, "seed_" + type.name());
         item.setItemMeta(meta);
         return item;
     }
@@ -148,7 +199,36 @@ public class BlackMarketListener implements Listener {
                 player.sendMessage("§a§l[Black Market] §aYou purchased §f" + type.displayName +
                         " Ammo §afor §f" + plugin.getEconomyManager().format(price) + "§a.");
             });
-        }
+        } else if (shopType.startsWith("drug_")) {
+        String drugId = shopType.substring(5);
+        DrugManager.DrugType drugType = DrugManager.DrugType.fromId(drugId);
+        if (drugType == null) return;
+        double price = drugType.blackMarketPrice;
+        handlePurchase(player, price, () -> {
+            player.getInventory().addItem(
+                    plugin.getDrugManager().createDrug(drugType));
+            player.sendMessage("§a§l[Black Market] §aYou purchased §f" +
+                    drugType.displayName + " §afor §f" +
+                    plugin.getEconomyManager().format(price) + "§a.");
+            player.sendMessage("§c§lWarning: §cPossession may be illegal. " +
+                    "Check §f/laws§c.");
+        });
+    } else if (shopType.startsWith("seed_")) {
+        String drugId = shopType.substring(5);
+        DrugManager.DrugType drugType = DrugManager.DrugType.fromId(drugId);
+        if (drugType == null) return;
+        // Seeds cost half the drug price
+        double price = drugType.blackMarketPrice * 0.5;
+        handlePurchase(player, price, () -> {
+            ItemStack seed = plugin.getDrugManager().createSeed(drugType);
+            if (seed != null) player.getInventory().addItem(seed);
+            player.sendMessage("§a§l[Black Market] §aYou purchased §f" +
+                    drugType.displayName + " seeds §afor §f" +
+                    plugin.getEconomyManager().format(price) + "§a.");
+            player.sendMessage("§7Plant them on grass or dirt with a right-click.");
+        });
+    }
+
 
         openShopMenu(player); // refresh balance display
     }

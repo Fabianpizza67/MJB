@@ -34,6 +34,8 @@ public class GovernmentManager {
     public static final String LAW_HOSPITAL_WEEKLY = "hospital_weekly_contribution";
     public static final String LAW_NO_ID_CARD      = "no_id_card";
     public static final String LAW_REFUSE_ID_CHECK = "refuse_id_check";
+    public static final String LAW_SOFT_DRUGS_LEGAL = "soft_drugs_legal";
+    public static final String LAW_HARD_DRUGS_LEGAL = "hard_drugs_legal";
 
     private static final ZoneId CET = ZoneId.of("Europe/Amsterdam");
 
@@ -658,6 +660,10 @@ public class GovernmentManager {
                 setGovernmentSetting(LAW_NO_ID_CARD, lawValue);
         case LAW_REFUSE_ID_CHECK ->
                 setGovernmentSetting(LAW_REFUSE_ID_CHECK, lawValue);
+        case LAW_SOFT_DRUGS_LEGAL ->
+                setGovernmentSetting(LAW_SOFT_DRUGS_LEGAL, lawValue);
+        case LAW_HARD_DRUGS_LEGAL ->
+                setGovernmentSetting(LAW_HARD_DRUGS_LEGAL, lawValue);
 
         case LAW_REPEAL -> {
             // lawValue = law ID as string
@@ -710,6 +716,10 @@ private void undoLawEffect(String lawType, String lawValue) {
                 setGovernmentSetting(LAW_NO_ID_CARD, "true");
         case LAW_REFUSE_ID_CHECK ->
                 setGovernmentSetting(LAW_REFUSE_ID_CHECK, "true");
+        case LAW_SOFT_DRUGS_LEGAL ->
+                setGovernmentSetting(LAW_SOFT_DRUGS_LEGAL, "false");
+        case LAW_HARD_DRUGS_LEGAL ->
+                setGovernmentSetting(LAW_HARD_DRUGS_LEGAL, "false");
 
         default -> { }
     }
@@ -783,6 +793,15 @@ public boolean isNoIDCardIllegal() {
 
 public boolean isRefuseIDCheckIllegal() {
     return !"false".equals(getGovernmentSetting(LAW_REFUSE_ID_CHECK, "true"));
+}
+
+// Default "false" — drugs are illegal until council legalises them
+public boolean areSoftDrugsLegal() {
+    return "true".equals(getGovernmentSetting(LAW_SOFT_DRUGS_LEGAL, "false"));
+}
+
+public boolean areHardDrugsLegal() {
+    return "true".equals(getGovernmentSetting(LAW_HARD_DRUGS_LEGAL, "false"));
 }
 
 // ---- Council region ----

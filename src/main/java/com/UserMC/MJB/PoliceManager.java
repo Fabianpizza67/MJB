@@ -145,6 +145,9 @@ public class PoliceManager {
         // Ammo is illegal
         if (plugin.getWeaponManager().isAmmo(item)) return true;
         // Generic illegal tag for future items (drugs etc.)
+        // Drug check — illegal if the current government laws make it so
+        if (plugin.getDrugManager().isIllegalDrug(item)) return true;
+
         return item.getItemMeta().getPersistentDataContainer()
                 .has(IS_ILLEGAL_KEY, PersistentDataType.BOOLEAN);
     }

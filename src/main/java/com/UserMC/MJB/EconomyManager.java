@@ -28,9 +28,9 @@ public class EconomyManager {
 
     public void initPlayer(UUID uuid, String username) {
         String sql = """
-            INSERT IGNORE INTO players (uuid, username, bank_balance, cash_balance)
-            VALUES (?, ?, 500.0, 0.0)
-        """;
+                    INSERT IGNORE INTO players (uuid, username, bank_balance, cash_balance)
+                    VALUES (?, ?, 500.0, 0.0)
+                """;
         try (PreparedStatement stmt = db.getConnection().prepareStatement(sql)) {
             stmt.setString(1, uuid.toString());
             stmt.setString(2, username);

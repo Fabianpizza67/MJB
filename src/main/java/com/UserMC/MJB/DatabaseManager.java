@@ -621,6 +621,49 @@ public class DatabaseManager {
                     "Create patient_medical_records table");
 
             execute(stmt,
+                    "CREATE TABLE IF NOT EXISTS drug_planted_locations (" +
+                            "world VARCHAR(64) NOT NULL," +
+                            "x INT NOT NULL," +
+                            "y INT NOT NULL," +
+                            "z INT NOT NULL," +
+                            "drug_type VARCHAR(16) NOT NULL," +
+                            "planted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (world, x, y, z)" +
+                            ")",
+                    "Create drug_planted_locations table");
+
+            execute(stmt,
+                    "CREATE TABLE IF NOT EXISTS drug_usage (" +
+                            "id INT AUTO_INCREMENT PRIMARY KEY," +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "drug_type VARCHAR(16) NOT NULL," +
+                            "used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                            ")",
+                    "Create drug_usage table");
+
+            execute(stmt,
+                    "CREATE TABLE IF NOT EXISTS drug_addiction (" +
+                            "player_uuid VARCHAR(36) NOT NULL," +
+                            "drug_type VARCHAR(16) NOT NULL," +
+                            "stage INT NOT NULL DEFAULT 1," +
+                            "PRIMARY KEY (player_uuid, drug_type)" +
+                            ")",
+                    "Create drug_addiction table"
+            );
+
+            execute(stmt,
+                    "CREATE TABLE IF NOT EXISTS drug_harvest_cooldowns (" +
+                            "world VARCHAR(64) NOT NULL," +
+                            "x INT NOT NULL," +
+                            "y INT NOT NULL," +
+                            "z INT NOT NULL," +
+                            "last_harvested TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                            "PRIMARY KEY (world, x, y, z)" +
+                            ")",
+                    "Create drug_harvest_cooldowns table"
+            );
+
+            execute(stmt,
                     "CREATE TABLE IF NOT EXISTS morphine_usage (" +
                             "player_uuid VARCHAR(36) NOT NULL," +
                             "used_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +

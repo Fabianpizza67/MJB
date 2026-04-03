@@ -6,7 +6,7 @@
 
     <groupId>com.usermc.mjb</groupId>
     <artifactId>mjb</artifactId>
-    <version>0.7.2</version>
+    <version>0.8.0</version>
     <packaging>jar</packaging>
 
     <distributionManagement>
@@ -126,6 +126,14 @@
         <version>local</version>
         <scope>system</scope>
         <systemPath>${project.basedir}/libs/MTVehicles.jar</systemPath>
+    </dependency>
+
+    <!-- Gson for JSON parsing (Gemini API responses) -->
+    <dependency>
+        <groupId>com.google.code.gson</groupId>
+        <artifactId>gson</artifactId>
+        <version>2.10.1</version>
+        <scope>compile</scope>
     </dependency>
     </dependencies>
 

@@ -45,6 +45,7 @@ public class MJB extends JavaPlugin {
     private JailManager jailManager;
     private RadioManager radioManager;
     private SophieManager sophieManager;
+    private DrugManager drugManager;
 
     @Override
     public void onEnable() {
@@ -108,6 +109,8 @@ public class MJB extends JavaPlugin {
         medicalRecordManager = new MedicalRecordManager(this);
         medicalRecordManager.startAddictionScheduler();
         idCardManager = new IDCardManager(this);
+        drugManager = new DrugManager(this);
+        drugManager.startAddictionScheduler();
         radioManager  = new RadioManager(this);
         sophieManager = new SophieManager(this);
         jailManager = new JailManager(this);
@@ -139,6 +142,7 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HospitalListener(this), this);
         getServer().getPluginManager().registerEvents(new HospitalNPCListener(this), this);
         getServer().getPluginManager().registerEvents(new IDCardListener(this), this);
+        getServer().getPluginManager().registerEvents(new DrugListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));
@@ -295,5 +299,6 @@ public class MJB extends JavaPlugin {
     public JailManager getJailManager() { return jailManager; }
     public RadioManager getRadioManager()   { return radioManager; }
     public SophieManager getSophieManager() { return sophieManager; }
+    public DrugManager getDrugManager() { return drugManager; }
 
 }
