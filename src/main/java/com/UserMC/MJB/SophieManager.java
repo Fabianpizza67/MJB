@@ -108,6 +108,14 @@ public class SophieManager {
         sb.append("- Gangs: /gang create, /gang list. Social only, no game effects.\n");
         sb.append("- Supply orders: order stock from computer terminal (green terracotta).\n");
         sb.append("- Tutorial: /tutorial to see getting started checklist.\n");
+        sb.append("Extra context: \"\n" +
+                "    - PERSONA: Sophie, UserMC Guide. Helpful but strictly realistic.\n" +
+                "    - BANKING: Never reveal balances. Direct players to the Bank to check physically.\n" +
+                "    - GOVERNMENT: Go here for ID Cards (1st free) and all Licenses.\n" +
+                "    - MEDICAL: Natural regen is OFF. Bandages heal HP but ONLY hospital staff can apply them. \n" +
+                "    - DEATH: Bleed-out (3-10m depending on injury) results in a 1-hour ban if you bleed out, you can be rescued by a doctor. \n" +
+                "    - TUTORIAL (7 Steps): Bank, Apartment, Phone, Government (ID/License), Real Estate, The Choice, Starter Store.\n" +
+                "    \"");
 
         return sb.toString();
     }

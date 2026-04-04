@@ -855,16 +855,35 @@ public void startSessionScheduler() {
     }, 0L, 20L * 60); // every minute
 }
 
-public void startElectionScheduler() {
-    // Elections every 2 weeks — check on Sundays at 14:00 CET
-    plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-        ZonedDateTime now = ZonedDateTime.now(CET);
-        if (now.getDayOfWeek().getValue() == 7 && now.getHour() == 0
-                && now.getMinute() == 0 && !isElectionActive()) {
-            plugin.getServer().getScheduler().runTask(plugin, this::startElection);
+    public void startElectionScheduler() {
+        // First election: April 5 2025 09:00 CET
+        // Then every 2 weeks after that
+        java.time.ZonedDateTime firstElection = java.time.ZonedDateTime.of(
+                2025, 4, 5, 9, 0, 0, 0, CET);
+
+        // If that date is already past, calculate the next occurrence
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(CET);
+        java.time.ZonedDateTime nextElection = firstElection;
+        while (nextElection.isBefore(now)) {
+            nextElection = nextElection.plusWeeks(2);
         }
-    }, 0L, 20L * 60);
-}
+
+        long delayMs = java.time.Duration.between(now, nextElection).toMillis();
+        long twoWeeksMs = 14L * 24 * 60 * 60 * 1000;
+
+        plugin.getLogger().info("[Elections] Next election scheduled for: " + nextElection);
+
+        // Schedule first election
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!isElectionActive()) startElection();
+            // Then repeat every 2 weeks
+            plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+                if (!isElectionActive()) {
+                    plugin.getServer().getScheduler().runTask(plugin, this::startElection);
+                }
+            }, twoWeeksMs / 50L, twoWeeksMs / 50L);
+        }, delayMs / 50L);
+    }
 
 // ---- Helpers / fromRs ----
 

@@ -203,6 +203,37 @@ public class MJB extends JavaPlugin {
 
         getCommand("buyphone").setExecutor(new BuyPhoneCommand(this));
 
+        getCommand("uncuff").setExecutor((sender, cmd, label, args) -> {
+            if (!(sender instanceof org.bukkit.entity.Player officer)) return true;
+            if (!getPoliceManager().isOfficer(officer.getUniqueId())) {
+                officer.sendMessage("§4You are not a police officer.");
+                return true;
+            }
+            // Find the player this officer has cuffed
+            java.util.UUID cuffedUuid = null;
+            for (java.util.UUID uuid : getPoliceManager().getCuffedPlayers()) {
+                if (officer.getUniqueId().equals(
+                        getPoliceManager().getCuffingOfficer(uuid))) {
+                    cuffedUuid = uuid;
+                    break;
+                }
+            }
+            if (cuffedUuid == null) {
+                officer.sendMessage("§4You don't have anyone cuffed.");
+                return true;
+            }
+            org.bukkit.entity.Player target =
+                    getServer().getPlayer(cuffedUuid);
+            getPoliceManager().uncuff(cuffedUuid);
+            officer.sendMessage("§f§l[Police] §fYou released §b" +
+                    (target != null ? target.getName() : "the suspect") + "§f.");
+            if (target != null) {
+                target.sendMessage("§f§l[Police] §fYou have been released by §b" +
+                        officer.getName() + "§f.");
+            }
+            return true;
+        });
+
         getCommand("judge").setExecutor(new JudgeCommand(this));
         getCommand("judge").setTabCompleter(new JudgeCommand(this));
 

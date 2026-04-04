@@ -1,5 +1,5 @@
 name: MJB
-version: 0.8.3
+version: 0.8.4
 main: com.UserMC.MJB.MJB
 api-version: "1.21"
 authors: [Fabianpizza]
@@ -98,6 +98,9 @@ commands:
   ask:
     description: Ask Sophie the city guide a question
     usage: /ask <question>
+  uncuff:
+    description: Uncuff the player you currently have cuffed
+    usage: /uncuff
 
 
 permissions:

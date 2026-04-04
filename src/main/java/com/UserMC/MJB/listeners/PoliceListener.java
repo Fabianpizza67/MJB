@@ -133,6 +133,7 @@ public class PoliceListener implements Listener {
         }
     }
 
+
     // ---- Block cuffed players from using items ----
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -176,6 +177,17 @@ public class PoliceListener implements Listener {
         if (!plugin.getPoliceManager().isCuffed(attacker.getUniqueId())) return;
         event.setCancelled(true);
         attacker.sendMessage("§c§l[Police] §cYou are handcuffed!");
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCuffedDamage(org.bukkit.event.entity.EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!plugin.getPoliceManager().isCuffed(player.getUniqueId())) return;
+        // Block suffocation damage — cuffed players get pushed into blocks by the escort
+        if (event.getCause() == org.bukkit.event.entity.EntityDamageEvent.DamageCause.SUFFOCATION ||
+                event.getCause() == org.bukkit.event.entity.EntityDamageEvent.DamageCause.CRAMMING) {
+            event.setCancelled(true);
+        }
     }
 
     // ---- Uncuff on disconnect (officer) — clean up victims ----

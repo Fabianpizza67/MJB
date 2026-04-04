@@ -38,6 +38,34 @@ public class BlockProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onItemPlace(org.bukkit.event.player.PlayerInteractEvent event) {
+        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
+
+        org.bukkit.inventory.ItemStack held =
+                event.getPlayer().getInventory().getItemInMainHand();
+        if (held == null || held.getType() == org.bukkit.Material.AIR) return;
+
+        // Block placing special plugin items as blocks
+        com.UserMC.MJB.MJB plugin = com.UserMC.MJB.MJB.getInstance();
+        if (plugin.getPoliceManager().isHandcuffs(held) ||
+                plugin.getPoliceManager().isBadge(held) ||
+                plugin.getPoliceBudgetManager().isBaton(held) ||
+                plugin.getHospitalManager().isBandage(held) ||
+                plugin.getHospitalManager().isMedicalItem(held) ||
+                plugin.getIDCardManager().isIDCard(held) ||
+                plugin.getWeaponManager().isWeapon(held) ||
+                plugin.getWeaponManager().isAmmo(held) ||
+                plugin.getDrugManager().isDrug(held) ||
+                plugin.getDebitCardManager().isDebitCard(held) ||
+                plugin.getPhoneManager().isPhone(held) ||
+                plugin.getRadioManager().isRadio(held)) {
+            // These items should never be placeable as blocks — cancel silently
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
         Player player = event.getPlayer();
         if (isAllowed(player)) return;
