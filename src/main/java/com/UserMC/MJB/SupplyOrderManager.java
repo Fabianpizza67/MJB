@@ -20,17 +20,19 @@ public class SupplyOrderManager {
 
     // ---- Supply Item Catalogue ----
 
-    public boolean registerSupplyItem(String material, String licenseRequired, double pricePerItem, int deliverySeconds) {
-        String sql = "INSERT INTO supply_items (material, license_required, price_per_item, delivery_seconds) " +
-                "VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE license_required = ?, price_per_item = ?, delivery_seconds = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+    // Register a plain material-based supply item
+    public boolean registerSupplyItem(String material, String licenseRequired,
+                                      double pricePerItem, int deliverySeconds) {
+        String sql = "INSERT INTO supply_items " +
+                "(material, display_name, license_required, price_per_item, delivery_seconds) " +
+                "VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
             stmt.setString(1, material);
-            stmt.setString(2, licenseRequired);
-            stmt.setDouble(3, pricePerItem);
-            stmt.setInt(4, deliverySeconds);
-            stmt.setString(5, licenseRequired);
-            stmt.setDouble(6, pricePerItem);
-            stmt.setInt(7, deliverySeconds);
+            stmt.setString(2, null); // auto-format from material name
+            stmt.setString(3, licenseRequired);
+            stmt.setDouble(4, pricePerItem);
+            stmt.setInt(5, deliverySeconds);
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
@@ -39,10 +41,61 @@ public class SupplyOrderManager {
         }
     }
 
-    public boolean removeSupplyItem(String material) {
-        String sql = "DELETE FROM supply_items WHERE material = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setString(1, material);
+    // Register a supply item from a held ItemStack (preserves NBT)
+    public boolean registerSupplyItemFromHand(org.bukkit.inventory.ItemStack item,
+                                              String licenseRequired,
+                                              double pricePerItem,
+                                              int deliverySeconds) {
+        if (item == null || item.getType() == org.bukkit.Material.AIR) return false;
+
+        // Serialize the full ItemStack to base64
+        String base64;
+        try {
+            byte[] bytes = item.serializeAsBytes();
+            base64 = java.util.Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
+            plugin.getLogger().severe("Error serializing item: " + e.getMessage());
+            return false;
+        }
+
+        // Use custom display name if present, otherwise format material name
+        String displayName = item.hasItemMeta() && item.getItemMeta().hasDisplayName()
+                ? item.getItemMeta().getDisplayName()
+                : formatMaterial(item.getType().name());
+
+        String sql = "INSERT INTO supply_items " +
+                "(material, display_name, license_required, price_per_item, " +
+                "delivery_seconds, item_data) VALUES (?, ?, ?, ?, ?, ?)";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
+            stmt.setString(1, item.getType().name());
+            stmt.setString(2, displayName);
+            stmt.setString(3, licenseRequired);
+            stmt.setDouble(4, pricePerItem);
+            stmt.setInt(5, deliverySeconds);
+            stmt.setString(6, base64);
+            stmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Error registering hand item: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String formatMaterial(String material) {
+        String[] words = material.toLowerCase().split("_");
+        StringBuilder sb = new StringBuilder();
+        for (String word : words)
+            sb.append(Character.toUpperCase(word.charAt(0)))
+                    .append(word.substring(1)).append(" ");
+        return sb.toString().trim();
+    }
+
+    public boolean removeSupplyItem(int id) {
+        String sql = "DELETE FROM supply_items WHERE id = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
+            stmt.setInt(1, id);
             stmt.executeUpdate();
             return true;
         } catch (SQLException e) {
@@ -53,16 +106,22 @@ public class SupplyOrderManager {
 
     public List<SupplyItem> getAvailableItems(String license) {
         List<SupplyItem> items = new ArrayList<>();
-        String sql = "SELECT * FROM supply_items WHERE license_required = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        String sql = "SELECT id, material, display_name, license_required, " +
+                "price_per_item, delivery_seconds, item_data " +
+                "FROM supply_items WHERE license_required = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
             stmt.setString(1, license);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 items.add(new SupplyItem(
+                        rs.getInt("id"),
                         rs.getString("material"),
+                        rs.getString("display_name"),
                         rs.getString("license_required"),
                         rs.getDouble("price_per_item"),
-                        rs.getInt("delivery_seconds")
+                        rs.getInt("delivery_seconds"),
+                        rs.getString("item_data")
                 ));
             }
         } catch (SQLException e) {
@@ -71,17 +130,23 @@ public class SupplyOrderManager {
         return items;
     }
 
-    public SupplyItem getSupplyItem(String material) {
-        String sql = "SELECT * FROM supply_items WHERE material = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            stmt.setString(1, material);
+    public SupplyItem getSupplyItemById(int id) {
+        String sql = "SELECT id, material, display_name, license_required, " +
+                "price_per_item, delivery_seconds, item_data " +
+                "FROM supply_items WHERE id = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
+            stmt.setInt(1, id);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 return new SupplyItem(
+                        rs.getInt("id"),
                         rs.getString("material"),
+                        rs.getString("display_name"),
                         rs.getString("license_required"),
                         rs.getDouble("price_per_item"),
-                        rs.getInt("delivery_seconds")
+                        rs.getInt("delivery_seconds"),
+                        rs.getString("item_data")
                 );
             }
         } catch (SQLException e) {
@@ -283,6 +348,12 @@ public class SupplyOrderManager {
 
         List<ItemStack> allStacks = new ArrayList<>();
         for (OrderLine line : lines) {
+            // Reconstruct the actual item (preserves NBT for custom items)
+            SupplyItem supplyItem = getSupplyItemById(line.supplyItemId);
+            org.bukkit.inventory.ItemStack template = supplyItem != null
+                    ? supplyItem.toItemStack()
+                    : new org.bukkit.inventory.ItemStack(
+                    org.bukkit.Material.valueOf(line.material));
             Material mat = Material.valueOf(line.material);
             int remaining = line.quantity;
             while (remaining > 0) {
@@ -368,8 +439,10 @@ public class SupplyOrderManager {
 
     public List<OrderLine> getOrderLines(int orderId) {
         List<OrderLine> lines = new ArrayList<>();
-        String sql = "SELECT * FROM supply_order_items WHERE order_id = ?";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
+        String sql = "SELECT material, quantity, price_per_item, supply_item_id " +
+                "FROM supply_order_items WHERE order_id = ?";
+        try (PreparedStatement stmt = plugin.getDatabaseManager()
+                .getConnection().prepareStatement(sql)) {
             stmt.setInt(1, orderId);
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
@@ -377,7 +450,8 @@ public class SupplyOrderManager {
                         rs.getString("material"),
                         rs.getInt("quantity"),
                         rs.getDouble("price_per_item"),
-                        0
+                        0,
+                        rs.getInt("supply_item_id")
                 ));
             }
         } catch (SQLException e) {
@@ -527,16 +601,52 @@ public class SupplyOrderManager {
     // ---- Data Classes ----
 
     public static class SupplyItem {
+        public final int id;
         public final String material;
+        public final String displayName;
         public final String licenseRequired;
         public final double pricePerItem;
         public final int deliverySeconds;
+        public final String itemData; // base64 encoded NBT, null for plain items
 
-        public SupplyItem(String material, String licenseRequired, double pricePerItem, int deliverySeconds) {
-            this.material = material;
+        public SupplyItem(int id, String material, String displayName,
+                          String licenseRequired, double pricePerItem,
+                          int deliverySeconds, String itemData) {
+            this.id             = id;
+            this.material       = material;
+            this.displayName    = displayName != null ? displayName : formatMaterial(material);
             this.licenseRequired = licenseRequired;
-            this.pricePerItem = pricePerItem;
+            this.pricePerItem   = pricePerItem;
             this.deliverySeconds = deliverySeconds;
+            this.itemData       = itemData;
+        }
+
+        // Build the actual ItemStack for display/delivery
+        public org.bukkit.inventory.ItemStack toItemStack() {
+            if (itemData != null) {
+                try {
+                    byte[] bytes = java.util.Base64.getDecoder().decode(itemData);
+                    return org.bukkit.inventory.ItemStack.deserializeBytes(bytes);
+                } catch (Exception e) {
+                    // Fall through to material-based
+                }
+            }
+            try {
+                return new org.bukkit.inventory.ItemStack(
+                        org.bukkit.Material.valueOf(material));
+            } catch (IllegalArgumentException e) {
+                return new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER);
+            }
+        }
+
+        private static String formatMaterial(String material) {
+            if (material == null) return "Unknown";
+            String[] words = material.toLowerCase().split("_");
+            StringBuilder sb = new StringBuilder();
+            for (String word : words)
+                sb.append(Character.toUpperCase(word.charAt(0)))
+                        .append(word.substring(1)).append(" ");
+            return sb.toString().trim();
         }
     }
 
@@ -545,12 +655,15 @@ public class SupplyOrderManager {
         public final int quantity;
         public final double pricePerItem;
         public final int deliverySeconds;
+        public final int supplyItemId; // new field
 
-        public OrderLine(String material, int quantity, double pricePerItem, int deliverySeconds) {
-            this.material = material;
-            this.quantity = quantity;
-            this.pricePerItem = pricePerItem;
+        public OrderLine(String material, int quantity, double pricePerItem,
+                         int deliverySeconds, int supplyItemId) {
+            this.material        = material;
+            this.quantity        = quantity;
+            this.pricePerItem    = pricePerItem;
             this.deliverySeconds = deliverySeconds;
+            this.supplyItemId    = supplyItemId;
         }
     }
 

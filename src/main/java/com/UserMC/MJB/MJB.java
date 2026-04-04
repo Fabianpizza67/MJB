@@ -46,6 +46,7 @@ public class MJB extends JavaPlugin {
     private RadioManager radioManager;
     private SophieManager sophieManager;
     private DrugManager drugManager;
+    private StarterStoreNPCListener starterStoreNPCListener;
 
     @Override
     public void onEnable() {
@@ -143,6 +144,8 @@ public class MJB extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HospitalNPCListener(this), this);
         getServer().getPluginManager().registerEvents(new IDCardListener(this), this);
         getServer().getPluginManager().registerEvents(new DrugListener(this), this);
+        getServer().getPluginManager().registerEvents(new IDCardListener(this), this);
+        getServer().getPluginManager().registerEvents(new StarterStoreNPCListener(this), this);
 
         // 4. Commands
         getCommand("pay").setExecutor(new PayCommand(this));

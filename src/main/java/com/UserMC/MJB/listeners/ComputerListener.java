@@ -2,6 +2,7 @@ package com.UserMC.MJB.listeners;
 
 import com.UserMC.MJB.CompanyManager;
 import com.UserMC.MJB.MJB;
+import com.UserMC.MJB.SupplyOrderManager;
 import com.UserMC.MJB.SupplyOrderManager.*;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -25,6 +26,7 @@ public class ComputerListener implements Listener {
     private final MJB plugin;
     private final Map<UUID, String> playerDistrict = new HashMap<>();
     private final Map<UUID, List<OrderLine>> playerCart = new HashMap<>();
+    private final Map<UUID, Integer> playerOrderPage = new HashMap<>();
 
     // Tracks which order a player is currently authorizing
     private final Map<UUID, Integer> awaitingAuthOrderId = new HashMap<>();
@@ -72,10 +74,14 @@ public class ComputerListener implements Listener {
         player.openInventory(gui);
     }
 
-// REPLACE the entire openOrderMenu method in ComputerListener.java with this:
 
     private void openOrderMenu(Player player) {
-        // Collect ALL active license types the player holds
+        openOrderMenu(player, 0);
+    }
+
+    private void openOrderMenu(Player player, int page) {
+        playerOrderPage.put(player.getUniqueId(), page);
+
         List<String> activeLicenses = plugin.getLicenseManager()
                 .getPlayerLicenses(player.getUniqueId())
                 .stream()
@@ -87,44 +93,76 @@ public class ComputerListener implements Listener {
 
         if (activeLicenses.isEmpty()) {
             player.sendMessage("§4You need a license to place supply orders.");
-            player.sendMessage("§7Visit the §fGovernment Office §7to get one.");
             player.closeInventory();
             return;
         }
 
-        // Gather supply items for every active license the player holds
-        List<SupplyItem> items = new ArrayList<>();
+        List<SupplyOrderManager.SupplyItem> allItems = new ArrayList<>();
         for (String license : activeLicenses) {
-            items.addAll(plugin.getSupplyOrderManager().getAvailableItems(license));
+            allItems.addAll(plugin.getSupplyOrderManager().getAvailableItems(license));
         }
 
-        if (items.isEmpty()) {
-            player.sendMessage("§7No supply items are available for your licenses yet.");
-            player.sendMessage("§7Ask an admin to add items with §f/mjbadmin addsupplyitem§7.");
+        if (allItems.isEmpty()) {
+            player.sendMessage("§7No supply items available for your licenses yet.");
             player.closeInventory();
             return;
         }
+
+        int pageSize     = 45;
+        int totalPages   = (int) Math.ceil((double) allItems.size() / pageSize);
+        int clampedPage  = Math.max(0, Math.min(page, totalPages - 1));
+        int startIdx     = clampedPage * pageSize;
+        int endIdx       = Math.min(startIdx + pageSize, allItems.size());
 
         Inventory gui = plugin.getServer().createInventory(null, 54, ORDER_GUI_TITLE);
 
-        int slot = 0;
-        for (SupplyItem item : items) {
-            if (slot >= 45) break;
-            Material mat = Material.valueOf(item.material);
-            gui.setItem(slot++, createGuiItem(mat,
-                    "§f" + formatMaterial(item.material),
-                    "§7Price: §f" + plugin.getEconomyManager().format(item.pricePerItem) + " §7each",
-                    "§7Delivery: §f" + formatTime(item.deliverySeconds),
-                    "§7License: §b" + item.licenseRequired,
-                    "",
-                    "§eLeft-click §7to add 1",
-                    "§eRight-click §7to add 16",
-                    "§eShift-click §7to add 64"
-            ));
+        for (int i = startIdx; i < endIdx; i++) {
+            SupplyOrderManager.SupplyItem item = allItems.get(i);
+            org.bukkit.inventory.ItemStack display = item.toItemStack().clone();
+            org.bukkit.inventory.meta.ItemMeta meta = display.getItemMeta();
+
+            // Override display name and lore for shop display
+            meta.setDisplayName("§f" + item.displayName);
+            List<String> lore = new ArrayList<>();
+            lore.add("§7Price: §f" + plugin.getEconomyManager().format(item.pricePerItem) + " §7each");
+            lore.add("§7Delivery: §f" + formatTime(item.deliverySeconds));
+            lore.add("§7License: §b" + item.licenseRequired);
+            lore.add("");
+            lore.add("§eLeft-click §7to add 1");
+            lore.add("§eRight-click §7to add 16");
+            lore.add("§eShift-click §7to add 64");
+            meta.setLore(lore);
+
+            // Store supply item ID in NBT so we can identify it on click
+            meta.getPersistentDataContainer().set(
+                    new org.bukkit.NamespacedKey(plugin, "supply_item_id"),
+                    org.bukkit.persistence.PersistentDataType.INTEGER, item.id);
+            display.setItemMeta(meta);
+            gui.setItem(i - startIdx, display);
         }
 
         gui.setItem(45, createGuiItem(Material.ARROW, "§fBack", "§7Return to main menu."));
-        gui.setItem(49, createGuiItem(Material.GOLD_INGOT, "§f§lView Cart", "§7See your current cart."));
+
+        // Prev page
+        if (clampedPage > 0) {
+            gui.setItem(46, createGuiItem(Material.SPECTRAL_ARROW,
+                    "§fPrevious Page",
+                    "§7Page " + clampedPage + " / " + totalPages));
+        }
+
+        // Page indicator
+        gui.setItem(48, createGuiItem(Material.PAPER,
+                "§7Page §f" + (clampedPage + 1) + " §7of §f" + totalPages, ""));
+
+        // Next page
+        if (clampedPage < totalPages - 1) {
+            gui.setItem(50, createGuiItem(Material.SPECTRAL_ARROW,
+                    "§fNext Page",
+                    "§7Page " + (clampedPage + 2) + " / " + totalPages));
+        }
+
+        gui.setItem(49, createGuiItem(Material.GOLD_INGOT, "§f§lView Cart",
+                "§7See your current cart."));
 
         player.openInventory(gui);
     }
@@ -293,10 +331,28 @@ public class ComputerListener implements Listener {
         if (title.equals(ORDER_GUI_TITLE)) {
             if (clicked.getType() == Material.ARROW) { openMainMenu(player); return; }
             if (clicked.getType() == Material.GOLD_INGOT) { openCartMenu(player); return; }
+            if (clicked.getType() == Material.SPECTRAL_ARROW) {
+                // Prev or next page
+                int currentPage = playerOrderPage.getOrDefault(player.getUniqueId(), 0);
+                String name = clicked.getItemMeta() != null
+                        ? clicked.getItemMeta().getDisplayName() : "";
+                if (name.contains("Previous")) openOrderMenu(player, currentPage - 1);
+                else openOrderMenu(player, currentPage + 1);
+                return;
+            }
+            if (clicked.getType() == Material.PAPER) return;
 
-            String materialName = clicked.getType().name();
-            SupplyItem supplyItem = plugin.getSupplyOrderManager().getSupplyItem(materialName);
+            if (!clicked.hasItemMeta()) return;
+            org.bukkit.NamespacedKey idKey =
+                    new org.bukkit.NamespacedKey(plugin, "supply_item_id");
+            if (!clicked.getItemMeta().getPersistentDataContainer()
+                    .has(idKey, org.bukkit.persistence.PersistentDataType.INTEGER)) return;
+            int supplyId = clicked.getItemMeta().getPersistentDataContainer()
+                    .get(idKey, org.bukkit.persistence.PersistentDataType.INTEGER);
+            SupplyOrderManager.SupplyItem supplyItem =
+                    plugin.getSupplyOrderManager().getSupplyItemById(supplyId);
             if (supplyItem == null) return;
+            String materialName = supplyItem.material;
 
             int amount = 1;
             if (event.isRightClick()) amount = 16;
@@ -307,12 +363,12 @@ public class ComputerListener implements Listener {
             for (int i = 0; i < cart.size(); i++) {
                 if (cart.get(i).material.equals(materialName)) {
                     OrderLine old = cart.get(i);
-                    cart.set(i, new OrderLine(old.material, old.quantity + amount, old.pricePerItem, old.deliverySeconds));
+                    cart.set(i, new OrderLine(old.material, old.quantity + amount, old.pricePerItem, old.deliverySeconds, old.supplyItemId));
                     found = true;
                     break;
                 }
             }
-            if (!found) cart.add(new OrderLine(materialName, amount, supplyItem.pricePerItem, supplyItem.deliverySeconds));
+            if (!found) cart.add(new OrderLine(materialName, amount, supplyItem.pricePerItem, supplyItem.deliverySeconds, supplyItem.id));
             player.sendMessage("§7Added §f" + amount + "x " + formatMaterial(materialName) + " §7to cart.");
             return;
         }

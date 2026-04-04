@@ -44,13 +44,14 @@ public class TutorialManager {
                         rs.getBoolean("visited_gov"),
                         rs.getBoolean("visited_realestate"),
                         rs.getBoolean("made_choice"),
+                        rs.getBoolean("claimed_starter_store"),
                         rs.getBoolean("completed")
                 );
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Error getting tutorial progress: " + e.getMessage());
         }
-        return new TutorialProgress(false, false, false, false, false, false, false);
+        return new TutorialProgress(false, false, false, false, false, false, false, false);
     }
 
     public void markStep(UUID uuid, String column) {
@@ -69,7 +70,8 @@ public class TutorialManager {
         TutorialProgress p = getProgress(uuid);
         if (p.completed) return;
         if (p.visitedBank && p.claimedApartment && p.checkedPhone
-                && p.visitedGov && p.visitedRealestate && p.madeChoice) {
+                && p.visitedGov && p.visitedRealestate && p.madeChoice
+                && p.claimedStarterStore) {
             String sql = "UPDATE tutorial_progress SET completed = TRUE WHERE player_uuid = ?";
             try (PreparedStatement stmt = plugin.getDatabaseManager()
                     .getConnection().prepareStatement(sql)) {
@@ -105,10 +107,13 @@ public class TutorialManager {
         player.sendMessage(step(p.visitedRealestate, "Visit the Real Estate office"));
         player.sendMessage(step(p.visitedGov,        "Visit the Government Office"));
         player.sendMessage(step(p.madeChoice,        "Choose your path: start a company or find a job"));
+        player.sendMessage(step(p.claimedStarterStore,
+                "Claim your free starter store from the Store Office NPC"));
         player.sendMessage("");
         player.sendMessage("§7§o  Tip: visit a furniture store to make your apartment feel like home!");
         player.sendMessage("§7§o  Tip: use §f/laws §7§oto see what's legal in the city.");
         player.sendMessage("§7§o  Tip: police can arrest you — stay out of trouble!");
+        player.sendMessage("§7§o  Tip: if you ever get confused - use /ask to ask me a question.");
         player.sendMessage("");
 
         if (p.completed) {
@@ -237,6 +242,18 @@ public class TutorialManager {
         player.sendMessage("");
     }
 
+    public void onClaimedStarterStore(Player player) {
+        TutorialProgress p = getProgress(player.getUniqueId());
+        if (p.claimedStarterStore) return;
+        markStep(player.getUniqueId(), "claimed_starter_store");
+        player.sendMessage("");
+        player.sendMessage(PREFIX + "You have a store to call your own — nice!");
+        player.sendMessage(PREFIX + "Right-click a §fPurpur Stairs §7block and use");
+        player.sendMessage(PREFIX + "§f/terminal register §7to set up a payment terminal.");
+        player.sendMessage(PREFIX + "Customers can tap their debit card to pay!");
+        player.sendMessage("");
+    }
+
     private void sendCompletion(Player player) {
         player.sendMessage("");
         player.sendMessage("§b§m----------------------------------------");
@@ -262,18 +279,20 @@ public class TutorialManager {
         public final boolean visitedGov;
         public final boolean visitedRealestate;
         public final boolean madeChoice;
+        public final boolean claimedStarterStore;
         public final boolean completed;
 
         public TutorialProgress(boolean visitedBank, boolean claimedApartment,
                                 boolean checkedPhone, boolean visitedGov,
                                 boolean visitedRealestate, boolean madeChoice,
-                                boolean completed) {
+                                boolean claimedStarterStore, boolean completed) {
             this.visitedBank = visitedBank;
             this.claimedApartment = claimedApartment;
             this.checkedPhone = checkedPhone;
             this.visitedGov = visitedGov;
             this.visitedRealestate = visitedRealestate;
             this.madeChoice = madeChoice;
+            this.claimedStarterStore = claimedStarterStore;
             this.completed = completed;
         }
     }

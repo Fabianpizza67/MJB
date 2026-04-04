@@ -712,6 +712,40 @@ public class DatabaseManager {
                             ")",
                     "Create jail_release_location table");
 
+            execute(stmt,
+                    "ALTER TABLE supply_items DROP PRIMARY KEY",
+                    "Drop material primary key from supply_items");
+
+            execute(stmt,
+                    "ALTER TABLE supply_items ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST",
+                    "Add auto-increment id to supply_items");
+
+            execute(stmt,
+                    "ALTER TABLE supply_items ADD COLUMN display_name VARCHAR(128) DEFAULT NULL",
+                    "Add display_name column to supply_items");
+
+            execute(stmt,
+                    "ALTER TABLE supply_items ADD COLUMN item_data MEDIUMTEXT DEFAULT NULL",
+                    "Add item_data column to supply_items");
+
+            execute(stmt,
+                    "ALTER TABLE tutorial_progress ADD COLUMN " +
+                            "claimed_starter_store BOOLEAN NOT NULL DEFAULT FALSE",
+                    "Add claimed_starter_store column to tutorial_progress");
+
+            execute(stmt,
+                    "CREATE TABLE IF NOT EXISTS starter_stores (" +
+                            "region_id VARCHAR(64) PRIMARY KEY," +
+                            "world VARCHAR(64) NOT NULL," +
+                            "is_claimed BOOLEAN NOT NULL DEFAULT FALSE," +
+                            "claimed_by VARCHAR(36) DEFAULT NULL" +
+                            ")",
+                    "Create starter_stores table");
+
+            execute(stmt,
+                    "ALTER TABLE supply_order_items ADD COLUMN supply_item_id INT DEFAULT 0",
+                    "Add supply_item_id to supply_order_items");
+
             // =========================================================
             // MIGRATIONS FOR EXISTING DATABASES
             // =========================================================

@@ -105,7 +105,13 @@ public class AdminCommand implements CommandExecutor {
                         npc.data().setPersistent(PoliceStationListener.STATION_NPC_TAG, true);
                         player.sendMessage("§fNPC §b" + npc.getName() + " §fis now a police station terminal!");
                     }
-                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket, policestation");
+                    case "starterstore" -> {
+                        npc.data().setPersistent(
+                                StarterStoreNPCListener.STARTER_STORE_NPC_TAG, true);
+                        player.sendMessage("§fNPC §b" + npc.getName() +
+                                " §fis now a starter store office NPC!");
+                    }
+                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket, policestation, starterstore");
                 }
             }
 
@@ -198,6 +204,88 @@ public class AdminCommand implements CommandExecutor {
                 }
             }
 
+            case "addstarterstoreplot" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin addstarterstoreplot <regionId>");
+                    return true;
+                }
+                String regionId = args[1].toLowerCase();
+                org.bukkit.World world = player.getWorld();
+                com.sk89q.worldguard.protection.managers.RegionManager rm =
+                        com.sk89q.worldguard.WorldGuard.getInstance().getPlatform()
+                                .getRegionContainer()
+                                .get(com.sk89q.worldedit.bukkit.BukkitAdapter.adapt(world));
+                if (rm == null || rm.getRegion(regionId) == null) {
+                    player.sendMessage("§4Region not found in WorldGuard.");
+                    return true;
+                }
+                String sql = "INSERT IGNORE INTO starter_stores " +
+                        "(region_id, world) VALUES (?, ?)";
+                try (java.sql.PreparedStatement stmt = MJB.getInstance()
+                        .getDatabaseManager().getConnection().prepareStatement(sql)) {
+                    stmt.setString(1, regionId);
+                    stmt.setString(2, world.getName());
+                    stmt.executeUpdate();
+                    player.sendMessage("§fRegion §b" + regionId +
+                            " §fadded to starter store pool!");
+                } catch (java.sql.SQLException e) {
+                    player.sendMessage("§4Failed: " + e.getMessage());
+                }
+            }
+
+            case "removestarterstoreplot" -> {
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin removestarterstoreplot <regionId>");
+                    return true;
+                }
+                String sql = "DELETE FROM starter_stores WHERE region_id = ?";
+                try (java.sql.PreparedStatement stmt = MJB.getInstance()
+                        .getDatabaseManager().getConnection().prepareStatement(sql)) {
+                    stmt.setString(1, args[1].toLowerCase());
+                    stmt.executeUpdate();
+                    player.sendMessage("§fRegion §b" + args[1] +
+                            " §fremoved from starter store pool.");
+                } catch (java.sql.SQLException e) {
+                    player.sendMessage("§4Failed: " + e.getMessage());
+                }
+            }
+
+            case "listplot" -> {
+                // /mjbadmin listplot <regionId> <price>
+                if (args.length < 3) {
+                    player.sendMessage("§4Usage: /mjbadmin listplot <regionId> <price>");
+                    return true;
+                }
+                double price;
+                try { price = Double.parseDouble(args[2]); }
+                catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid price.");
+                    return true;
+                }
+                String regionId = args[1].toLowerCase();
+                String worldName = player.getWorld().getName();
+
+                // Determine plot type from region name prefix
+                String plotType = "property";
+                if (regionId.startsWith("apt") || regionId.contains("apartment"))
+                    plotType = "apartment";
+                else if (regionId.startsWith("house") || regionId.contains("house"))
+                    plotType = "house";
+                else if (regionId.startsWith("store") || regionId.contains("store")
+                        || regionId.contains("shop")) plotType = "store";
+
+                boolean ok = MJB.getInstance().getPropertyManager()
+                        .registerListing(regionId, worldName, plotType, "city", price);
+                if (ok) {
+                    player.sendMessage("§fPlot §b" + regionId +
+                            " §flisted for §b" +
+                            MJB.getInstance().getEconomyManager().format(price) +
+                            "§f. Revenue goes to the city treasury.");
+                } else {
+                    player.sendMessage("§4Failed — region may not exist in WorldGuard.");
+                }
+            }
+
             case "liststarterapts" -> {
                 player.sendMessage("§b§l--- Available Starter Apartments ---");
                 List<String> apts = MJB.getInstance().getPlotManager().getAvailableStarterApartments();
@@ -259,25 +347,68 @@ public class AdminCommand implements CommandExecutor {
             }
 
             case "addsupplyitem" -> {
-                if (args.length < 5) {
-                    player.sendMessage("§4Usage: /mjbadmin addsupplyitem <material> <license> <price> <delivery_seconds>");
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /mjbadmin addsupplyitem <MATERIAL|hand> " +
+                            "<license> <price> <delivery_seconds>");
                     return true;
                 }
-                double price;
-                int delivery;
-                try {
-                    price = Double.parseDouble(args[3]);
-                    delivery = Integer.parseInt(args[4]);
-                } catch (NumberFormatException e) {
-                    player.sendMessage("§4Invalid price or delivery time.");
-                    return true;
-                }
-                boolean success = MJB.getInstance().getSupplyOrderManager()
-                        .registerSupplyItem(args[1].toUpperCase(), args[2].toLowerCase(), price, delivery);
-                if (success) {
-                    player.sendMessage("§fSupply item §b" + args[1] + " §fregistered!");
+
+                if (args[1].equalsIgnoreCase("hand")) {
+                    // Use held item
+                    if (args.length < 5) {
+                        player.sendMessage("§4Usage: /mjbadmin addsupplyitem hand " +
+                                "<license> <price> <delivery_seconds>");
+                        return true;
+                    }
+                    org.bukkit.inventory.ItemStack held =
+                            player.getInventory().getItemInMainHand();
+                    if (held.getType() == org.bukkit.Material.AIR) {
+                        player.sendMessage("§4You are not holding any item.");
+                        return true;
+                    }
+                    double price;
+                    int delivery;
+                    try {
+                        price    = Double.parseDouble(args[3]);
+                        delivery = Integer.parseInt(args[4]);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage("§4Invalid price or delivery time.");
+                        return true;
+                    }
+                    boolean ok = MJB.getInstance().getSupplyOrderManager()
+                            .registerSupplyItemFromHand(held, args[2].toLowerCase(),
+                                    price, delivery);
+                    if (ok) {
+                        String name = held.hasItemMeta() && held.getItemMeta().hasDisplayName()
+                                ? held.getItemMeta().getDisplayName()
+                                : held.getType().name();
+                        player.sendMessage("§fSupply item §b" + name +
+                                " §fregistered with license §b" + args[2] + "§f.");
+                    } else {
+                        player.sendMessage("§4Failed to register item.");
+                    }
                 } else {
-                    player.sendMessage("§4Failed to register supply item.");
+                    // Material-based
+                    if (args.length < 5) {
+                        player.sendMessage("§4Usage: /mjbadmin addsupplyitem <MATERIAL|hand> " +
+                                "<license> <price> <delivery_seconds>");
+                        return true;
+                    }
+                    double price;
+                    int delivery;
+                    try {
+                        price    = Double.parseDouble(args[3]);
+                        delivery = Integer.parseInt(args[4]);
+                    } catch (NumberFormatException e) {
+                        player.sendMessage("§4Invalid price or delivery time.");
+                        return true;
+                    }
+                    boolean ok = MJB.getInstance().getSupplyOrderManager()
+                            .registerSupplyItem(args[1].toUpperCase(),
+                                    args[2].toLowerCase(), price, delivery);
+                    player.sendMessage(ok
+                            ? "§fSupply item §b" + args[1] + " §fregistered!"
+                            : "§4Failed to register supply item.");
                 }
             }
             case "assigncompanyplot" -> {
@@ -850,5 +981,8 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin closesession §7- Force close session + evaluate proposals");
         player.sendMessage("§f/mjbadmin setjailrelease §7- Set the jail release teleport location (stand at it)");
         player.sendMessage("§f/mjbadmin giveradio <player> <police|medical|public> §7- Give a radio item");
+        player.sendMessage("§f/mjbadmin addstarterstoreplot <region> §7- Add to starter store pool");
+        player.sendMessage("§f/mjbadmin removestarterstoreplot <region> §7- Remove from starter store pool");
+        player.sendMessage("§f/mjbadmin listplot <region> <price> §7- List a plot for sale (city listing)");
     }
 }

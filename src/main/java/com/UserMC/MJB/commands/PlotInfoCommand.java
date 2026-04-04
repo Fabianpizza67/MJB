@@ -39,7 +39,21 @@ public class PlotInfoCommand implements CommandExecutor {
         PlotInfo info = plugin.getPlotManager().getPlotInfo(regionId, player.getWorld());
 
         if (info == null) {
-            player.sendMessage("§4This plot has no owner yet.");
+            // Show region ID even without an owner
+            player.sendMessage("§8§m-----------------------------");
+            player.sendMessage("§b§l  " + regionId);
+            player.sendMessage("§8§m-----------------------------");
+            player.sendMessage("§7Address: §b" + regionId);
+            player.sendMessage("§7Owner: §7None — this plot is not owned by anyone.");
+
+            // Check if it's listed for sale
+            com.UserMC.MJB.PropertyManager.PropertyListing listing =
+                    plugin.getPropertyManager().getListing(regionId, player.getWorld().getName());
+            if (listing != null && listing.isAvailable) {
+                player.sendMessage("§7For sale: §b" +
+                        plugin.getEconomyManager().format(listing.price));
+            }
+            player.sendMessage("§8§m-----------------------------");
             return true;
         }
 
@@ -53,6 +67,7 @@ public class PlotInfoCommand implements CommandExecutor {
         player.sendMessage("§8§m-----------------------------");
         player.sendMessage("§b§l  " + regionId);
         player.sendMessage("§8§m-----------------------------");
+        player.sendMessage("§7Address: §b" + regionId);
         player.sendMessage("§7Type: §f" + plotType);
         player.sendMessage("§7Owner: §b" + ownerName);
         player.sendMessage("§7Since: §f" + sdf.format(info.purchasedAt));
