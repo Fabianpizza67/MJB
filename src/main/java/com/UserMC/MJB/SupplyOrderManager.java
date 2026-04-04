@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.potion.PotionType;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -348,17 +349,18 @@ public class SupplyOrderManager {
 
         List<ItemStack> allStacks = new ArrayList<>();
         for (OrderLine line : lines) {
-            // Reconstruct the actual item (preserves NBT for custom items)
             SupplyItem supplyItem = getSupplyItemById(line.supplyItemId);
             org.bukkit.inventory.ItemStack template = supplyItem != null
                     ? supplyItem.toItemStack()
                     : new org.bukkit.inventory.ItemStack(
                     org.bukkit.Material.valueOf(line.material));
-            Material mat = Material.valueOf(line.material);
             int remaining = line.quantity;
+            int maxStack  = template.getMaxStackSize();
             while (remaining > 0) {
-                int stackSize = Math.min(remaining, mat.getMaxStackSize());
-                ItemStack stack = new ItemStack(mat, stackSize);
+                int stackSize = Math.min(remaining, maxStack);
+                // Clone the template to preserve ALL metadata including PotionMeta
+                ItemStack stack = template.clone();
+                stack.setAmount(stackSize);
                 ItemMeta meta = stack.getItemMeta();
                 meta.getPersistentDataContainer().set(
                         stockKey, org.bukkit.persistence.PersistentDataType.BOOLEAN, true
@@ -622,19 +624,34 @@ public class SupplyOrderManager {
         }
 
         // Build the actual ItemStack for display/delivery
+// Build the actual ItemStack for display/delivery
         public org.bukkit.inventory.ItemStack toItemStack() {
             if (itemData != null) {
                 try {
                     byte[] bytes = java.util.Base64.getDecoder().decode(itemData);
                     return org.bukkit.inventory.ItemStack.deserializeBytes(bytes);
                 } catch (Exception e) {
-                    // Fall through to material-based
+                    // If decoding fails, fall through to material-based logic
                 }
             }
+
             try {
-                return new org.bukkit.inventory.ItemStack(
-                        org.bukkit.Material.valueOf(material));
+                Material mat = Material.valueOf(material);
+                org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(mat);
+
+                // This prevents the "Uncraftable Potion" (Magenta) look
+                if (mat == Material.POTION) {
+                    org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+                    if (meta instanceof org.bukkit.inventory.meta.PotionMeta potionMeta) {
+                        // Sets the default look to a Water Bottle
+                        potionMeta.setBasePotionType(PotionType.WATER);
+                        item.setItemMeta(potionMeta);
+                    }
+                }
+
+                return item;
             } catch (IllegalArgumentException e) {
+                // Fallback if the material name in the DB is invalid
                 return new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER);
             }
         }

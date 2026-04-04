@@ -219,10 +219,16 @@ public class HospitalListener implements Listener {
             return;
         }
 
-        // Check expiry
-        if (!plugin.getHospitalManager().isMedicalItemValid(held)) {
-            doctor.sendMessage("§4This bandage has expired!");
-            return;
+        if (held.hasItemMeta() && held.getItemMeta().getPersistentDataContainer()
+                .has(plugin.getHospitalManager().EXPIRY_KEY,
+                        org.bukkit.persistence.PersistentDataType.LONG)) {
+            long expiry = held.getItemMeta().getPersistentDataContainer()
+                    .get(plugin.getHospitalManager().EXPIRY_KEY,
+                            org.bukkit.persistence.PersistentDataType.LONG);
+            if (System.currentTimeMillis() > expiry) {
+                doctor.sendMessage("§4This bandage has expired!");
+                return;
+            }
         }
 
         // Can't bandage a downed player — they need proper treatment

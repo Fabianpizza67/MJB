@@ -26,17 +26,15 @@ public class ThirstManager {
     public ThirstManager(MJB plugin) {
         this.plugin = plugin;
 
-        // Vanilla water bottle — drunk via vanilla consume mechanic
-        // returnsBottle = false: we delete the glass bottle so players can't refill
+        // Allow ALL potions (Water, Uncraftable, Healing, Poison, etc.) to restore thirst
         registerDrink(new DrinkEntry(
                 Material.POTION,
-                PotionType.WATER,
+                null,         // null = match any potion type
                 MAX_THIRST,   // full restore
                 false,        // do NOT return glass bottle
-                List.of()     // no extra effects
+                List.of()     // no extra thirst-related effects
         ));
     }
-
     // ---- Drink registry ----
 
     public void registerDrink(DrinkEntry entry) {
