@@ -12,8 +12,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 
 public class BlockProtectionListener implements Listener {
 
@@ -62,6 +64,37 @@ public class BlockProtectionListener implements Listener {
                 plugin.getRadioManager().isRadio(held)) {
             // These items should never be placeable as blocks — cancel silently
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBottleFill(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (event.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) return;
+        if (event.getClickedBlock() == null) return;
+
+        org.bukkit.inventory.ItemStack held = event.getPlayer()
+                .getInventory().getItemInMainHand();
+        if (held == null) return;
+
+        // Block filling glass bottles from water sources
+        if (held.getType() == org.bukkit.Material.GLASS_BOTTLE) {
+            org.bukkit.Material blockType = event.getClickedBlock().getType();
+            if (blockType == org.bukkit.Material.WATER ||
+                    blockType == org.bukkit.Material.SEAGRASS ||
+                    blockType == org.bukkit.Material.KELP ||
+                    blockType == org.bukkit.Material.BUBBLE_COLUMN) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+
+        // Also block right-clicking water with a water bottle
+        // (prevents instant refill loop while drinking animation plays)
+        if (held.getType() == org.bukkit.Material.POTION) {
+            if (event.getClickedBlock().getType() == org.bukkit.Material.WATER) {
+                event.setCancelled(true);
+            }
         }
     }
 
