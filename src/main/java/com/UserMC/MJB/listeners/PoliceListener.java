@@ -66,6 +66,79 @@ public class PoliceListener implements Listener {
             return;
         }
 
+        // ---- Drug test ----
+        if (plugin.getPoliceBudgetManager().isDrugTest(held)) {
+            event.setCancelled(true);
+
+            if (!plugin.getPoliceManager().isOfficer(officer.getUniqueId())) {
+                officer.sendMessage("§4You are not a police officer.");
+                return;
+            }
+
+            if (pendingDrugTests.containsKey(target.getUniqueId())) {
+                officer.sendMessage("§4That player already has a pending drug test request.");
+                return;
+            }
+
+            // Send GUI to target
+            pendingDrugTests.put(target.getUniqueId(), officer.getUniqueId());
+
+            org.bukkit.inventory.Inventory gui = plugin.getServer()
+                    .createInventory(null, 27, DRUG_TEST_GUI);
+
+            org.bukkit.inventory.ItemStack info = new org.bukkit.inventory.ItemStack(
+                    org.bukkit.Material.AMETHYST_SHARD);
+            org.bukkit.inventory.meta.ItemMeta infoMeta = info.getItemMeta();
+            infoMeta.setDisplayName("§5§lDrug Test");
+            infoMeta.setLore(java.util.List.of(
+                    "§7Officer §b" + officer.getName() +
+                            " §7wants to administer a drug test.",
+                    "§7This will reveal any drugs used",
+                    "§7in the last §f2.5 minutes§7.",
+                    "",
+                    "§aAccept §7or §cDecline§7?"
+            ));
+            info.setItemMeta(infoMeta);
+            gui.setItem(4, info);
+
+            org.bukkit.inventory.ItemStack accept =
+                    new org.bukkit.inventory.ItemStack(org.bukkit.Material.LIME_WOOL);
+            org.bukkit.inventory.meta.ItemMeta acceptMeta = accept.getItemMeta();
+            acceptMeta.setDisplayName("§a§lAccept");
+            acceptMeta.setLore(java.util.List.of("§7Consent to the drug test."));
+            accept.setItemMeta(acceptMeta);
+            gui.setItem(11, accept);
+
+            org.bukkit.inventory.ItemStack decline =
+                    new org.bukkit.inventory.ItemStack(org.bukkit.Material.RED_WOOL);
+            org.bukkit.inventory.meta.ItemMeta declineMeta = decline.getItemMeta();
+            declineMeta.setDisplayName("§c§lDecline");
+            declineMeta.setLore(java.util.List.of(
+                    "§7Refuse the drug test.",
+                    "§7The officer will be notified."
+            ));
+            decline.setItemMeta(declineMeta);
+            gui.setItem(15, decline);
+
+            target.openInventory(gui);
+            officer.sendMessage("§5§l[Drug Test] §fRequest sent to §b" +
+                    target.getName() + "§f. Waiting for response...");
+
+            // Auto-expire after 30 seconds if no response
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (pendingDrugTests.containsKey(target.getUniqueId())) {
+                    pendingDrugTests.remove(target.getUniqueId());
+                    officer.sendMessage("§5§l[Drug Test] §7" + target.getName() +
+                            " §7did not respond. Request expired.");
+                    if (target.isOnline() &&
+                            DRUG_TEST_GUI.equals(target.getOpenInventory().getTitle())) {
+                        target.closeInventory();
+                    }
+                }
+            }, 20L * 30);
+            return;
+        }
+
         // ---- Badge: search cuffed player ----
 // ---- Badge: search cuffed player ----
         if (plugin.getPoliceManager().isBadge(held)) {
@@ -145,6 +218,114 @@ public class PoliceListener implements Listener {
 
     // ---- Block cuffed players from opening inventories ----
 
+    @EventHandler
+    public void onDrugTestResponse(org.bukkit.event.inventory.InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player target)) return;
+        if (!event.getView().getTitle().equals(DRUG_TEST_GUI)) return;
+
+        event.setCancelled(true);
+
+        org.bukkit.inventory.ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || clicked.getType() == org.bukkit.Material.AIR) return;
+
+        java.util.UUID officerUuid = pendingDrugTests.remove(target.getUniqueId());
+        if (officerUuid == null) {
+            target.closeInventory();
+            return;
+        }
+
+        Player officer = plugin.getServer().getPlayer(officerUuid);
+        target.closeInventory();
+
+        if (clicked.getType() == org.bukkit.Material.RED_WOOL) {
+            // Declined
+            target.sendMessage("§5§l[Drug Test] §7You declined the drug test.");
+            if (officer != null) {
+                officer.sendMessage("§5§l[Drug Test] §b" + target.getName() +
+                        " §cdeclined §fyour drug test.");
+
+                // Refusing can be a crime if the law is active
+                // (officer decides manually whether to charge)
+            }
+            return;
+        }
+
+        if (clicked.getType() == org.bukkit.Material.LIME_WOOL) {
+            // Accepted — check drug use in last 150 seconds
+            target.sendMessage("§5§l[Drug Test] §7Test administered...");
+
+            String sql = "SELECT drug_type, COUNT(*) as uses FROM drug_usage " +
+                    "WHERE player_uuid = ? " +
+                    "AND used_at > NOW() - INTERVAL 150 SECOND " +
+                    "GROUP BY drug_type";
+            try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
+                    .getConnection().prepareStatement(sql)) {
+                stmt.setString(1, target.getUniqueId().toString());
+                java.sql.ResultSet rs = stmt.executeQuery();
+
+                java.util.Map<String, Integer> results = new java.util.LinkedHashMap<>();
+                while (rs.next()) {
+                    results.put(rs.getString("drug_type"), rs.getInt("uses"));
+                }
+
+                if (results.isEmpty()) {
+                    target.sendMessage("§a§l[Drug Test] §aTest came back clean.");
+                    if (officer != null) {
+                        officer.sendMessage("§5§l[Drug Test] §b" + target.getName() +
+                                " §atested clean. §7No drugs detected in the last 2.5 minutes.");
+                    }
+                } else {
+                    target.sendMessage("§c§l[Drug Test] §cTest came back positive.");
+                    if (officer != null) {
+                        officer.sendMessage("§5§l[Drug Test] §b" + target.getName() +
+                                " §ctested positive§f:");
+                        for (var entry : results.entrySet()) {
+                            com.UserMC.MJB.DrugManager.DrugType type =
+                                    com.UserMC.MJB.DrugManager.DrugType.fromId(entry.getKey());
+                            String displayName = type != null
+                                    ? type.displayName : entry.getKey();
+                            officer.sendMessage("§7  - §f" + displayName +
+                                    " §7(§f" + entry.getValue() + "x §7in last 2.5min)");
+                        }
+                        // Auto-add offence if drugs are illegal
+                        for (String drugId : results.keySet()) {
+                            com.UserMC.MJB.DrugManager.DrugType type =
+                                    com.UserMC.MJB.DrugManager.DrugType.fromId(drugId);
+                            if (type != null && !plugin.getDrugManager().isLegal(type)) {
+                                plugin.getCrimeManager().addOffence(
+                                        target.getUniqueId(),
+                                        "Tested positive for " +
+                                                (type.displayName) + " (drug test by " +
+                                                officer.getName() + ")",
+                                        officer.getUniqueId()
+                                );
+                            }
+                        }
+                        officer.sendMessage("§7Charges automatically added for illegal substances.");
+                    }
+                }
+            } catch (java.sql.SQLException e) {
+                plugin.getLogger().severe("Drug test query error: " + e.getMessage());
+                if (officer != null) {
+                    officer.sendMessage("§4Drug test failed due to a server error.");
+                }
+            }
+
+            // Consume one drug test from officer's inventory
+            if (officer != null) {
+                for (int i = 0; i < officer.getInventory().getSize(); i++) {
+                    org.bukkit.inventory.ItemStack inv =
+                            officer.getInventory().getItem(i);
+                    if (plugin.getPoliceBudgetManager().isDrugTest(inv)) {
+                        if (inv.getAmount() > 1) inv.setAmount(inv.getAmount() - 1);
+                        else officer.getInventory().setItem(i, null);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onInventoryOpen(InventoryOpenEvent event) {
         if (!(event.getPlayer() instanceof Player player)) return;
@@ -207,6 +388,12 @@ public class PoliceListener implements Listener {
             }
         }
     }
+
+    // Pending drug tests: target UUID → officer UUID
+    private final java.util.Map<java.util.UUID, java.util.UUID> pendingDrugTests =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static final String DRUG_TEST_GUI = "§c§lDrug Test Request";
 
     // ---- Uncuff if victim disconnects ----
 

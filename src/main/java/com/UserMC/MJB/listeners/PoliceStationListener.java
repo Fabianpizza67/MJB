@@ -534,6 +534,7 @@ public class PoliceStationListener implements Listener {
             case "ammo_pistol", "ammo_rifle", "ammo_shotgun" -> Material.PAPER;
             case "uniform"      -> Material.LEATHER_CHESTPLATE;
             case "police_radio" -> Material.CLOCK;
+            case "drug_test" -> Material.AMETHYST_SHARD;
             default             -> Material.GRAY_DYE;
         };
     }

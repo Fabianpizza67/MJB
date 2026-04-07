@@ -18,6 +18,7 @@ public class PoliceBudgetManager {
 
     public final NamespacedKey IS_BATON_KEY;
     public final NamespacedKey IS_UNIFORM_KEY;
+    public final NamespacedKey IS_DRUG_TEST_KEY;
 
     // Police equipment prices (cheaper than black market)
     public static final Map<String, Double> EQUIPMENT_PRICES = new LinkedHashMap<>();
@@ -35,6 +36,7 @@ public class PoliceBudgetManager {
         EQUIPMENT_PRICES.put("ammo_shotgun",  100.0);
         EQUIPMENT_PRICES.put("uniform",       200.0);
         EQUIPMENT_PRICES.put("police_radio",  500.0);
+        EQUIPMENT_PRICES.put("drug_test",      50.0);
 
         EQUIPMENT_NAMES.put("pistol",       "Pistol");
         EQUIPMENT_NAMES.put("rifle",        "Rifle");
@@ -47,12 +49,14 @@ public class PoliceBudgetManager {
         EQUIPMENT_NAMES.put("ammo_shotgun", "Shotgun Ammo");
         EQUIPMENT_NAMES.put("uniform",      "Police Uniform");
         EQUIPMENT_NAMES.put("police_radio", "Police Radio");
+        EQUIPMENT_NAMES.put("drug_test", "Drug Test Kit");
     }
 
     public PoliceBudgetManager(MJB plugin) {
         this.plugin = plugin;
         IS_BATON_KEY   = new NamespacedKey(plugin, "is_baton");
         IS_UNIFORM_KEY = new NamespacedKey(plugin, "is_uniform");
+        IS_DRUG_TEST_KEY = new NamespacedKey(plugin, "is_drug_test");
     }
 
     // ---- Budget bank ----
@@ -392,6 +396,7 @@ public class PoliceBudgetManager {
             case "uniform"      -> createUniform();
             case "police_radio"  -> plugin.getRadioManager().createRadio(
                     RadioManager.CHANNEL_POLICE);
+            case "drug_test"     -> createDrugTest();
             default -> null;
         };
     }
@@ -424,6 +429,28 @@ public class PoliceBudgetManager {
         meta.getPersistentDataContainer().set(IS_UNIFORM_KEY, PersistentDataType.BOOLEAN, true);
         item.setItemMeta(meta);
         return item;
+    }
+
+    public ItemStack createDrugTest() {
+        ItemStack item = new ItemStack(org.bukkit.Material.AMETHYST_SHARD);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§5§lDrug Test Kit");
+        meta.setLore(List.of(
+                "§7Right-click a player to administer.",
+                "§7Detects drug use in the last 2.5 minutes.",
+                "§7The player must consent.",
+                "§b§lPolice Equipment"
+        ));
+        meta.getPersistentDataContainer().set(
+                IS_DRUG_TEST_KEY, PersistentDataType.BOOLEAN, true);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public boolean isDrugTest(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer()
+                .has(IS_DRUG_TEST_KEY, PersistentDataType.BOOLEAN);
     }
 
     public boolean isBaton(ItemStack item) {
