@@ -144,7 +144,7 @@ public class ThirstManager {
                     if (newHealth <= 0) {
                         // Go downed instead of dying
                         plugin.getHospitalManager().goDown(player,
-                                HospitalManager.InjuryType.BLEEDING);
+                                HospitalManager.InjuryType.INFECTION);
                     } else {
                         player.setHealth(newHealth);
                     }
