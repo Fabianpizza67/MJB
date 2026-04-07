@@ -26,6 +26,7 @@ public class NameTagManager {
         }
 
         team.setPrefix(prefix);
+        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
 
         // Only add the entry if not already in the team
         if (!team.hasEntry(player.getName())) {
