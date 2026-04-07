@@ -885,6 +885,53 @@ public void startSessionScheduler() {
         }, delayMs / 50L);
     }
 
+    public void startCouncilSalaryScheduler() {
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("CET"));
+
+        // Target Monday at 12:00 PM
+        java.time.ZonedDateTime nextMonday = now.withHour(12).withMinute(0).withSecond(0).withNano(0);
+        while (nextMonday.isBefore(now) || nextMonday.getDayOfWeek() != java.time.DayOfWeek.MONDAY) {
+            nextMonday = nextMonday.plusDays(1);
+        }
+
+        long delayTicks = java.time.Duration.between(now, nextMonday).getSeconds() * 20L;
+        long oneWeekTicks = 20L * 60 * 60 * 24 * 7;
+
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            // Switch to Sync to safely iterate players and use your getVotingPower method
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+
+                String sql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
+
+                try (java.sql.Connection conn = plugin.getDatabaseManager().getConnection();
+                     java.sql.PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+                    for (Player p : plugin.getServer().getOnlinePlayers()) {
+                        int seats = getVotingPower(p.getUniqueId());
+                        if (seats <= 0) continue;
+
+                        double salary = seats * 100.0;
+
+                        // Execute the update
+                        stmt.setDouble(1, salary);
+                        stmt.setString(2, p.getUniqueId().toString());
+                        stmt.executeUpdate();
+
+                        // Send the message
+                        p.sendMessage("§6§l[Council] §fYou received your weekly council salary: §b"
+                                + plugin.getEconomyManager().format(salary)
+                                + " §7(" + seats + " seat(s) × $100)§f.");
+                    }
+
+                    plugin.getLogger().info("[Council] Weekly salaries processed for online members.");
+
+                } catch (java.sql.SQLException e) {
+                    plugin.getLogger().severe("Council salary database error: " + e.getMessage());
+                }
+            });
+        }, delayTicks, oneWeekTicks);
+    }
+
 // ---- Helpers / fromRs ----
 
 private PartyInfo partyFromRs(ResultSet rs) throws SQLException {

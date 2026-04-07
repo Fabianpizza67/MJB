@@ -57,6 +57,15 @@ public class DrugListener implements Listener {
 
             DrugManager.DrugType type = plugin.getDrugManager().getSeedDrugType(held);
             if (type == null) return;
+            String regionId = plugin.getPlotManager()
+                    .getRegionAtLocation(clicked.getLocation());
+            if (regionId == null ||
+                    !plugin.getPlotManager().isPlotOwner(
+                            player.getUniqueId(), regionId)) {
+                player.sendMessage("§4You can only plant on your own plot.");
+                event.setCancelled(true);
+                return;
+            }
 
             Material plantMat = plugin.getDrugManager().getPlantMaterial(type);
             if (plantMat == null) return;

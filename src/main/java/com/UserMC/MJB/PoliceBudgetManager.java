@@ -1,5 +1,6 @@
 package com.UserMC.MJB;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -150,87 +151,107 @@ public class PoliceBudgetManager {
     }
 
     public void processDailySalaries() {
-        String sql = "SELECT uuid, salary FROM police_officers WHERE salary > 0";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                UUID uuid = UUID.fromString(rs.getString("uuid"));
-                double salary = rs.getDouble("salary");
+        String selectSql = "SELECT uuid, salary FROM police_officers WHERE salary > 0";
+        String updateSql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
 
-                if (!deductFromBudget(salary)) {
-                    // Budget too low — notify sergeant
-                    notifySergeants("§4§l[Police Budget] §4Insufficient funds to pay salaries! " +
-                            "Budget needs topping up.");
-                    return;
-                }
+        // 1. Run this ASYNCHRONOUSLY so you don't lag the server
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+                conn.setAutoCommit(false); // Start Transaction
 
-                // Pay officer
-                String addSql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
-                try (PreparedStatement addStmt = plugin.getDatabaseManager().getConnection()
-                        .prepareStatement(addSql)) {
-                    addStmt.setDouble(1, salary);
-                    addStmt.setString(2, uuid.toString());
-                    addStmt.executeUpdate();
-                }
+                try (PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+                     PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                     ResultSet rs = selectStmt.executeQuery()) {
 
-                Player officer = plugin.getServer().getPlayer(uuid);
-                if (officer != null) {
-                    officer.sendMessage("§b§l[Police] §fYou received your daily salary of §b" +
-                            plugin.getEconomyManager().format(salary) + "§f.");
+                    while (rs.next()) {
+                        String uuidStr = rs.getString("uuid");
+                        double salary = rs.getDouble("salary");
+
+                        // Budget check (Ensure this method is thread-safe!)
+                        if (!deductFromBudget(salary)) {
+                            plugin.getLogger().warning("[Police] Budget too low for " + uuidStr);
+                            continue;
+                        }
+
+                        // Add to batch instead of executing immediately
+                        updateStmt.setDouble(1, salary);
+                        updateStmt.setString(2, uuidStr);
+                        updateStmt.addBatch();
+
+                        // Optional: Send message to player (Must be done on Main Thread)
+                        UUID uuid = UUID.fromString(uuidStr);
+                        Player officer = Bukkit.getPlayer(uuid);
+                        if (officer != null) {
+                            officer.sendMessage("§b§l[Police] §fSalary received: §b$" + salary);
+                        }
+                    }
+
+                    updateStmt.executeBatch(); // Execute all updates at once
+                    conn.commit(); // Save everything
+
+                } catch (SQLException e) {
+                    conn.rollback(); // Undo everything if an error occurs
+                    throw e;
                 }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("Database error: " + e.getMessage());
             }
-        } catch (SQLException e) {
-            plugin.getLogger().severe("Error processing police salaries: " + e.getMessage());
-        }
+        });
     }
 
     public void startSchedulers() {
-        // Daily salary payout
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("CET"));
+
+        // Target 12:00 PM (Midday)
+        java.time.ZonedDateTime nextMidday = now.withHour(12).withMinute(0).withSecond(0).withNano(0);
+        if (now.isAfter(nextMidday)) nextMidday = nextMidday.plusDays(1);
+
+        long delayTicks = java.time.Duration.between(now, nextMidday).getSeconds() * 20L;
         long oneDayTicks = 20L * 60 * 60 * 24;
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
-                        plugin.getServer().getScheduler().runTask(plugin, this::processDailySalaries),
-                oneDayTicks, oneDayTicks);
-        // Weekly 2K server top-up
-// Weekly server top-up — goes to city treasury, council decides how to spend it
+
+        // --- DAILY POLICE SALARIES ---
+        // This runs EVERY DAY at 12:00 PM
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin,
+                this::processDailySalaries, delayTicks, oneDayTicks);
+
+        // --- WEEKLY MONDAY EVENTS (Treasury & City Contribution) ---
+        java.time.ZonedDateTime nextMonday = nextMidday;
+        while (nextMonday.getDayOfWeek() != java.time.DayOfWeek.MONDAY) {
+            nextMonday = nextMonday.plusDays(1);
+        }
+
+        long mondayDelayTicks = java.time.Duration.between(now, nextMonday).getSeconds() * 20L;
         long oneWeekTicks = oneDayTicks * 7;
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
-                        plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            String sql = "UPDATE city_treasury SET balance = balance + 25000 WHERE id = 1";
-                            try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
-                                    .getConnection().prepareStatement(sql)) {
-                                stmt.executeUpdate();
-                            } catch (java.sql.SQLException e) {
-                                plugin.getLogger().severe("Error adding weekly treasury top-up: " + e.getMessage());
+
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+                    // 1. Weekly Treasury Injection ($25,000)
+                    String topUp = "UPDATE city_treasury SET balance = balance + 25000 WHERE id = 1";
+                    try (PreparedStatement stmt = conn.prepareStatement(topUp)) {
+                        stmt.executeUpdate();
+                    }
+
+                    // 2. Weekly Police Budget Contribution
+                    double contribution = Double.parseDouble(
+                            plugin.getGovernmentManager().getGovernmentSetting("police_weekly_contribution", "0"));
+
+                    if (contribution > 0) {
+                        String deduct = "UPDATE city_treasury SET balance = balance - ? WHERE id = 1 AND balance >= ?";
+                        try (PreparedStatement stmt = conn.prepareStatement(deduct)) {
+                            stmt.setDouble(1, contribution);
+                            stmt.setDouble(2, contribution);
+                            if (stmt.executeUpdate() > 0) {
+                                addToBudget(contribution);
+                                notifySergeants("§b§l[Police Budget] §fMonday Treasury Contribution: §b$" + contribution);
                             }
-                        }),
-                oneWeekTicks, oneWeekTicks);
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
-                        plugin.getServer().getScheduler().runTask(plugin, () -> {
-                            try {
-                                double contribution = Double.parseDouble(
-                                        plugin.getGovernmentManager().getGovernmentSetting(
-                                                "police_weekly_contribution", "0"));
-                                if (contribution > 0) {
-                                    String deductSql = "UPDATE city_treasury SET balance = balance - ? " +
-                                            "WHERE id = 1 AND balance >= ?";
-                                    try (java.sql.PreparedStatement stmt = plugin.getDatabaseManager()
-                                            .getConnection().prepareStatement(deductSql)) {
-                                        stmt.setDouble(1, contribution);
-                                        stmt.setDouble(2, contribution);
-                                        if (stmt.executeUpdate() > 0) {
-                                            addToBudget(contribution);
-                                            notifySergeants("§b§l[Police Budget] §fThe city contributed §b" +
-                                                    plugin.getEconomyManager().format(contribution) +
-                                                    " §ffrom the treasury to the police budget this week.");
-                                        } else {
-                                            notifySergeants("§4§l[Police Budget] §4Weekly city contribution failed " +
-                                                    "— city treasury has insufficient funds!");
-                                        }
-                                    }
-                                }
-                            } catch (Exception ignored) { }
-                        }),
-                oneWeekTicks, oneWeekTicks);
+                        }
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().severe("Monday Weekly Task Error: " + e.getMessage());
+                }
+            });
+        }, mondayDelayTicks, oneWeekTicks);
     }
 
     private void notifySergeants(String message) {

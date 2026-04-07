@@ -36,6 +36,8 @@ public class ComputerListener implements Listener {
     private static final String CART_GUI_TITLE = "§b§lYour Cart";
     private static final String ORDERS_GUI_TITLE = "§b§lMy Orders";
     private static final String AUTH_GUI_TITLE = "§b§lAuthorize Pickup";
+    private static final String POLICE_APP_TITLE  = "§9§lPolice Terminal";
+    private static final String HOSPITAL_APP_TITLE = "§b§lHospital Terminal";
 
     public ComputerListener(MJB plugin) {
         this.plugin = plugin;
@@ -69,6 +71,17 @@ public class ComputerListener implements Listener {
         gui.setItem(3, createGuiItem(Material.OAK_DOOR, "§f§lProperties",
                 "§7Browse and buy properties.",
                 "§7List your own property for resale."));
+        if (plugin.getPoliceManager().isOfficer(player.getUniqueId())) {
+            gui.setItem(4, createGuiItem(Material.IRON_SWORD, "§9§lPolice App",
+                    "§7View wanted players, your rank and salary.",
+                    "§7Request equipment."));
+        }
+        if (plugin.getHospitalManager().isDoctor(player.getUniqueId())) {
+            gui.setItem(4, createGuiItem(Material.RED_WOOL,
+                    "§b§lHospital App",
+                    "§7View downed players, request supplies,",
+                    "§7check hospital budget."));
+        }
         gui.setItem(8, createGuiItem(Material.BARRIER, "§4Close", "§7Close the computer."));
 
         player.openInventory(gui);
@@ -298,6 +311,140 @@ public class ComputerListener implements Listener {
         player.openInventory(gui);
     }
 
+    private void openPoliceApp(Player player) {
+        if (!plugin.getPoliceManager().isOfficer(player.getUniqueId())) {
+            player.sendMessage("§4Access denied.");
+            return;
+        }
+
+        com.UserMC.MJB.CrimeManager.PoliceRank rank =
+                plugin.getCrimeManager().getRank(player.getUniqueId());
+        double salary = plugin.getPoliceBudgetManager()
+                .getSalary(player.getUniqueId());
+        double budget = plugin.getPoliceBudgetManager().getBudget();
+
+        Inventory gui = plugin.getServer().createInventory(
+                null, 54, POLICE_APP_TITLE);
+
+        // Officer info
+        gui.setItem(4, createGuiItem(Material.GOLD_NUGGET,
+                "§9§lYour Officer Info",
+                "§7Rank: §b" + (rank != null ? rank.displayName : "Officer"),
+                "§7Daily salary: §f" + plugin.getEconomyManager().format(salary),
+                "§7Police budget: §f" + plugin.getEconomyManager().format(budget)));
+
+        // Wanted list
+        java.util.List<java.util.UUID> wanted =
+                plugin.getCrimeManager().getAllWantedPlayers();
+        int wantedSlot = 9;
+        if (wanted.isEmpty()) {
+            gui.setItem(wantedSlot, createGuiItem(Material.LIME_DYE,
+                    "§aNo Wanted Players", "§7The city is at peace!"));
+        } else {
+            for (java.util.UUID uuid : wanted) {
+                if (wantedSlot >= 36) break;
+                String name = plugin.getServer().getOfflinePlayer(uuid).getName();
+                java.util.List<com.UserMC.MJB.CrimeManager.CrimeRecord> crimes =
+                        plugin.getCrimeManager().getUnprocessedRecords(uuid);
+                boolean online = plugin.getServer().getPlayer(uuid) != null;
+                gui.setItem(wantedSlot++, createGuiItem(Material.PAPER,
+                        "§c" + (name != null ? name : uuid.toString()),
+                        "§7Status: " + (online ? "§a[Online]" : "§7[Offline]"),
+                        "§7Active charges: §f" + crimes.size()));
+            }
+        }
+
+        // Downed players
+        int downedSlot = 36;
+        if (plugin.getHospitalManager().getAllDownedPlayers().isEmpty()) {
+            gui.setItem(downedSlot, createGuiItem(Material.LIME_DYE,
+                    "§aNo Downed Players", "§7Nobody needs help right now."));
+        } else {
+            for (var entry : plugin.getHospitalManager().getAllDownedPlayers().entrySet()) {
+                if (downedSlot >= 45) break;
+                String name = plugin.getServer().getOfflinePlayer(entry.getKey()).getName();
+                long remaining = plugin.getHospitalManager()
+                        .getDownedPlayer(entry.getKey()) != null
+                        ? (entry.getValue().injury.bleedoutSeconds -
+                           (System.currentTimeMillis() - entry.getValue().downerAt) / 1000)
+                        : 0;
+                gui.setItem(downedSlot++, createGuiItem(Material.RED_DYE,
+                        "§c" + (name != null ? name : "Unknown"),
+                        "§7Injury: §f" + entry.getValue().injury.displayName,
+                        "§7Time left: §f" + Math.max(0, remaining) + "s"));
+            }
+        }
+
+        // Request equipment info
+        gui.setItem(49, createGuiItem(Material.CHEST,
+                "§fRequest Equipment",
+                "§7Visit the §bPolice Station NPC §7to",
+                "§7submit equipment requisitions."));
+
+        gui.setItem(45, createGuiItem(Material.ARROW, "§fBack",
+                "§7Return to main menu."));
+        gui.setItem(53, createGuiItem(Material.BARRIER, "§4Close", "§7Close."));
+
+        player.openInventory(gui);
+    }
+
+    private void openHospitalApp(Player player) {
+        if (!plugin.getHospitalManager().isDoctor(player.getUniqueId())) {
+            player.sendMessage("§4Access denied.");
+            return;
+        }
+
+        com.UserMC.MJB.HospitalManager.HospitalRank rank =
+                plugin.getHospitalManager().getRank(player.getUniqueId());
+        double salary  = plugin.getHospitalManager().getSalary(player.getUniqueId());
+        double budget  = plugin.getHospitalBudgetManager().getBudget();
+
+        Inventory gui = plugin.getServer().createInventory(
+                null, 54, HOSPITAL_APP_TITLE);
+
+        // Doctor info
+        gui.setItem(4, createGuiItem(Material.NETHER_STAR,
+                "§b§lYour Doctor Info",
+                "§7Rank: §b" + rank.displayName,
+                "§7Daily salary: §f" + plugin.getEconomyManager().format(salary),
+                "§7Hospital budget: §f" + plugin.getEconomyManager().format(budget)));
+
+        // Downed players
+        int slot = 9;
+        if (plugin.getHospitalManager().getAllDownedPlayers().isEmpty()) {
+            gui.setItem(slot, createGuiItem(Material.LIME_DYE,
+                    "§aNo Downed Players", "§7Nobody needs medical attention."));
+        } else {
+            for (var entry : plugin.getHospitalManager().getAllDownedPlayers().entrySet()) {
+                if (slot >= 36) break;
+                String name = plugin.getServer().getOfflinePlayer(
+                        entry.getKey()).getName();
+                long remaining = entry.getValue().injury.bleedoutSeconds -
+                        (System.currentTimeMillis() - entry.getValue().downerAt) / 1000;
+                boolean hasDrip = plugin.getMedicalRecordManager()
+                        .hasIVDrip(entry.getKey());
+                gui.setItem(slot++, createGuiItem(Material.RED_DYE,
+                        "§c" + (name != null ? name : "Unknown"),
+                        "§7Injury: §f" + entry.getValue().injury.displayName,
+                        "§7Time left: §f" + Math.max(0, remaining) + "s",
+                        hasDrip ? "§aIV drip active" : "§7No IV drip"));
+            }
+        }
+
+        // Pending requests count
+        int pending = plugin.getHospitalManager()
+                .getPendingSupplyRequests().size();
+        gui.setItem(45, createGuiItem(Material.ARROW, "§fBack",
+                "§7Return to main menu."));
+        gui.setItem(49, createGuiItem(Material.CHEST,
+                "§fRequest Supplies §7(" + pending + " pending)",
+                "§7Visit the §bHospital NPC §7to request",
+                "§7medical supplies for approval."));
+        gui.setItem(53, createGuiItem(Material.BARRIER, "§4Close", "§7Close."));
+
+        player.openInventory(gui);
+    }
+
     // ---- Click Handler ----
 
     @EventHandler
@@ -307,11 +454,72 @@ public class ComputerListener implements Listener {
 
         if (!title.equals(MAIN_GUI_TITLE) && !title.equals(ORDER_GUI_TITLE) &&
                 !title.equals(CART_GUI_TITLE) && !title.equals(ORDERS_GUI_TITLE) &&
-                !title.equals(AUTH_GUI_TITLE)) return;
+                !title.equals(AUTH_GUI_TITLE) && !title.equals(POLICE_APP_TITLE) &&
+                !title.equals(HOSPITAL_APP_TITLE)) return;
+
 
         event.setCancelled(true);
         ItemStack clicked = event.getCurrentItem();
         if (clicked == null || clicked.getType() == Material.AIR) return;
+
+        if (title.equals(POLICE_APP_TITLE)) {
+            event.setCancelled(true);
+            // Only process clicks on the top inventory (the GUI itself)
+            if (event.getClickedInventory() == null ||
+                    event.getClickedInventory() != event.getView().getTopInventory()) return;
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+
+            if (clicked.getType() == Material.ARROW) {
+                openMainMenu(player); return;
+            }
+            if (clicked.getType() == Material.BARRIER) {
+                player.closeInventory(); return;
+            }
+            if (clicked.getType() == Material.CHEST) {
+                player.closeInventory();
+                player.sendMessage("§9§l[Police] §fVisit the §bPolice Station NPC §fto request equipment.");
+                return;
+            }
+            // PAPER = wanted player entry — give as flyer
+            if (clicked.getType() == Material.PAPER) {
+                ItemStack flyer = clicked.clone();
+                // Update lore to show it's a flyer
+                org.bukkit.inventory.meta.ItemMeta meta = flyer.getItemMeta();
+                java.util.List<String> lore = new java.util.ArrayList<>(
+                        meta.getLore() != null ? meta.getLore() : new java.util.ArrayList<>());
+                lore.add("");
+                lore.add("§8§o[Wanted Flyer — printed from Police Terminal]");
+                meta.setLore(lore);
+                flyer.setItemMeta(meta);
+                flyer.setAmount(1);
+                player.getInventory().addItem(flyer);
+                player.sendMessage("§9§l[Police] §fWanted flyer added to your inventory.");
+                return;
+            }
+            return;
+        }
+
+        if (title.equals(HOSPITAL_APP_TITLE)) {
+            event.setCancelled(true);
+            if (event.getClickedInventory() == null ||
+                    event.getClickedInventory() != event.getView().getTopInventory()) return;
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+
+            if (clicked.getType() == Material.ARROW) {
+                openMainMenu(player); return;
+            }
+            if (clicked.getType() == Material.BARRIER) {
+                player.closeInventory(); return;
+            }
+            if (clicked.getType() == Material.CHEST) {
+                player.closeInventory();
+                player.sendMessage("§b§l[Hospital] §fVisit the §bHospital NPC §fto request supplies.");
+                return;
+            }
+            return;
+        }
+
+
 
         // Main menu
         if (title.equals(MAIN_GUI_TITLE)) {
@@ -323,8 +531,16 @@ public class ComputerListener implements Listener {
             else if (clicked.getType() == Material.OAK_DOOR) {
                 plugin.getRealEstateNPCListener().openBrowseMenuPublic(player);
             }
+            else if (clicked.getType() == Material.IRON_SWORD) {
+                openPoliceApp(player);
+            }
+            else if (clicked.getType() == Material.NETHER_STAR) {
+                openHospitalApp(player);
+            }
             else if (clicked.getType() == Material.BARRIER) player.closeInventory();
             return;
+
+
         }
 
         // Order menu

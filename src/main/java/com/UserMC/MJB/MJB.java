@@ -73,7 +73,7 @@ public class MJB extends JavaPlugin {
         bankNPCListener = new BankNPCListener(this);
         companyManager = new CompanyManager(this);
         companyComputerListener = new CompanyComputerListener(this);
-        companyManager.startSalaryScheduler();
+        companyManager.startCompanySalaryScheduler();
         propertyManager = new PropertyManager(this);
         realEstateNPCListener = new RealEstateNPCListener(this);
         licenseManager = new LicenseManager(this);
@@ -96,6 +96,7 @@ public class MJB extends JavaPlugin {
         governmentManager.init();
         governmentManager.startSessionScheduler();
         governmentManager.startElectionScheduler();
+        governmentManager.startCouncilSalaryScheduler();
         phoneManager = new PhoneManager(this);
         proximityChatListener = new ProximityChatListener(this);
         nameTagManager = new NameTagManager(this);

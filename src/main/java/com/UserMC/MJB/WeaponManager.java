@@ -104,7 +104,6 @@ public class WeaponManager {
         meta.setDisplayName(type.color + "§l" + type.displayName);
 
         List<String> lore = new ArrayList<>();
-        lore.add("§8[Illegal Firearm]");
         if (type != WeaponType.KNIFE) {
             lore.add("§7Ammo: §f" + type.magSize + "/" + type.magSize);
             lore.add("§7Damage: §f" + (type == WeaponType.SHOTGUN

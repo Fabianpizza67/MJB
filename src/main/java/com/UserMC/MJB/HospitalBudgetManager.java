@@ -49,32 +49,40 @@ public class HospitalBudgetManager {
     }
 
     public void processDailySalaries() {
-        String sql = "SELECT uuid, salary FROM hospital_doctors WHERE salary > 0";
-        try (PreparedStatement stmt = plugin.getDatabaseManager()
-                .getConnection().prepareStatement(sql)) {
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                UUID uuid = UUID.fromString(rs.getString("uuid"));
-                double salary = rs.getDouble("salary");
-                if (!deductFromBudget(salary)) {
-                    notifyChiefs("§4§l[Hospital Budget] §4Insufficient funds to pay salaries!");
-                    return;
+        String selectSql = "SELECT uuid, salary FROM hospital_doctors WHERE salary > 0";
+        String updatePlayerSql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
+        String deductBudgetSql = "UPDATE hospital_budget SET balance = balance - ? WHERE id = 1 AND balance >= ?";
+
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+                 PreparedStatement updatePlayerStmt = conn.prepareStatement(updatePlayerSql);
+                 PreparedStatement deductBudgetStmt = conn.prepareStatement(deductBudgetSql);
+                 ResultSet rs = selectStmt.executeQuery()) {
+
+                while (rs.next()) {
+                    String uuidStr = rs.getString("uuid");
+                    double salary = rs.getDouble("salary");
+
+                    deductBudgetStmt.setDouble(1, salary);
+                    deductBudgetStmt.setDouble(2, salary);
+
+                    if (deductBudgetStmt.executeUpdate() == 0) {
+                        notifyChiefs("§4§l[Hospital Budget] §4Insufficient funds for " + uuidStr);
+                        continue;
+                    }
+
+                    updatePlayerStmt.setDouble(1, salary);
+                    updatePlayerStmt.setString(2, uuidStr);
+                    updatePlayerStmt.executeUpdate();
                 }
-                String addSql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
-                try (PreparedStatement addStmt = plugin.getDatabaseManager()
-                        .getConnection().prepareStatement(addSql)) {
-                    addStmt.setDouble(1, salary);
-                    addStmt.setString(2, uuid.toString());
-                    addStmt.executeUpdate();
-                }
-                Player doctor = plugin.getServer().getPlayer(uuid);
-                if (doctor != null) {
-                    doctor.sendMessage("§b§l[Hospital] §fYou received your daily salary of §b" +
-                            plugin.getEconomyManager().format(salary) + "§f.");
-                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error processing hospital salaries: " + e.getMessage());
+            plugin.getLogger().severe("Hospital salary error: " + e.getMessage());
         }
     }
 
@@ -88,41 +96,41 @@ public class HospitalBudgetManager {
     }
 
     public void startSchedulers() {
-        long oneDayTicks  = 20L * 60 * 60 * 24;
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Europe/Amsterdam"));
+        java.time.ZonedDateTime nextMidday = now.withHour(12).withMinute(0).withSecond(0).withNano(0);
+        if (now.isAfter(nextMidday)) nextMidday = nextMidday.plusDays(1);
+
+        long delayTicks = java.time.Duration.between(now, nextMidday).getSeconds() * 20L;
+        long oneDayTicks = 20L * 60 * 60 * 24;
         long oneWeekTicks = oneDayTicks * 7;
 
-        // Daily salaries
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
-                        plugin.getServer().getScheduler().runTask(plugin,
-                                this::processDailySalaries),
-                oneDayTicks, oneDayTicks);
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin,
+                this::processDailySalaries, delayTicks, oneDayTicks);
 
-        // Weekly city contribution
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () ->
-                plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    try {
-                        double contribution = Double.parseDouble(
-                                plugin.getGovernmentManager().getGovernmentSetting(
-                                        "hospital_weekly_contribution", "0"));
-                        if (contribution > 0) {
-                            String sql = "UPDATE city_treasury SET balance = balance - ? " +
-                                    "WHERE id = 1 AND balance >= ?";
-                            try (PreparedStatement stmt = plugin.getDatabaseManager()
-                                    .getConnection().prepareStatement(sql)) {
-                                stmt.setDouble(1, contribution);
-                                stmt.setDouble(2, contribution);
-                                if (stmt.executeUpdate() > 0) {
-                                    addToBudget(contribution);
-                                    notifyChiefs("§b§l[Hospital] §fThe city contributed §b" +
-                                            plugin.getEconomyManager().format(contribution) +
-                                            " §fto the hospital budget this week.");
-                                } else {
-                                    notifyChiefs("§4§l[Hospital] §4Weekly contribution failed — " +
-                                            "city treasury has insufficient funds!");
-                                }
-                            }
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            try {
+                double contribution = Double.parseDouble(
+                        plugin.getGovernmentManager().getGovernmentSetting(
+                                "hospital_weekly_contribution", "0"));
+                if (contribution > 0) {
+                    String sql = "UPDATE city_treasury SET balance = balance - ? " +
+                            "WHERE id = 1 AND balance >= ?";
+                    try (PreparedStatement stmt = plugin.getDatabaseManager()
+                            .getConnection().prepareStatement(sql)) {
+                        stmt.setDouble(1, contribution);
+                        stmt.setDouble(2, contribution);
+                        if (stmt.executeUpdate() > 0) {
+                            addToBudget(contribution);
+                            notifyChiefs("§b§l[Hospital] §fThe city contributed §b" +
+                                    plugin.getEconomyManager().format(contribution) +
+                                    " §fto the hospital budget this week.");
+                        } else {
+                            notifyChiefs("§4§l[Hospital] §4Weekly contribution failed — " +
+                                    "city treasury has insufficient funds!");
                         }
-                    } catch (Exception ignored) { }
-                }), oneWeekTicks, oneWeekTicks);
+                    }
+                }
+            } catch (Exception ignored) { }
+        }, delayTicks, oneWeekTicks);
     }
 }

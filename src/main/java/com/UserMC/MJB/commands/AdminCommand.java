@@ -887,6 +887,17 @@ public class AdminCommand implements CommandExecutor {
                 }
             }
 
+            case "policebudget" -> {
+                double bal = MJB.getInstance().getPoliceBudgetManager().getBudget();
+                player.sendMessage("§b§lPolice Budget: §f" +
+                        MJB.getInstance().getEconomyManager().format(bal));
+            }
+            case "paypolicenow" -> {
+                // Manually trigger salary payout for testing
+                MJB.getInstance().getPoliceBudgetManager().processDailySalaries();
+                player.sendMessage("§fPolice salaries processed manually.");
+            }
+
             case "giveradio" -> {
                 // /mjbadmin giveradio <player> <police|medical|public>
                 if (args.length != 3) {

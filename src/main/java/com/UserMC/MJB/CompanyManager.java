@@ -1,5 +1,6 @@
 package com.UserMC.MJB;
 
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.sql.*;
@@ -405,73 +406,112 @@ public class CompanyManager {
      * Runs daily — pays all employees from company banks.
      * If company can't afford payroll, marks bankrupt and skips.
      */
-    public void processDailySalaries() {
-        String sql = "SELECT id, bank_balance, is_bankrupt FROM companies";
-        try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql)) {
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                int companyId = rs.getInt("id");
-                boolean isBankrupt = rs.getBoolean("is_bankrupt");
+    public void startCompanySalaryScheduler() {
+        java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.of("CET"));
+        java.time.ZonedDateTime nextMidday = now.withHour(12).withMinute(0).withSecond(0).withNano(0);
+        if (now.isAfter(nextMidday)) nextMidday = nextMidday.plusDays(1);
 
-                if (isBankrupt) continue;
+        long delayTicks = java.time.Duration.between(now, nextMidday).getSeconds() * 20L;
 
-                List<CompanyMember> members = getMembers(companyId);
-                double totalPayroll = members.stream()
-                        .filter(m -> !m.roleName.equals("owner"))
-                        .mapToDouble(m -> m.salary)
-                        .sum();
+        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+            // Run daily processing
+            processCompanySalaries();
+        }, delayTicks, 20L * 60 * 60 * 24);
+    }
 
-                if (totalPayroll <= 0) continue;
-
-                double balance = getCompanyBalance(companyId);
-                if (balance < totalPayroll) {
-                    // Mark bankrupt, notify owner
-                    String bankruptSql = "UPDATE companies SET is_bankrupt = TRUE WHERE id = ?";
-                    try (PreparedStatement bs = plugin.getDatabaseManager().getConnection().prepareStatement(bankruptSql)) {
-                        bs.setInt(1, companyId);
-                        bs.executeUpdate();
-                    }
-                    CompanyInfo info = getCompanyById(companyId);
-                    if (info != null) {
-                        Player owner = plugin.getServer().getPlayer(info.ownerUuid);
-                        if (owner != null) {
-                            owner.sendMessage("§4§l[Company] §4Your company §f" + info.name + " §4cannot afford payroll and has gone bankrupt!");
-                            owner.sendMessage("§7Deposit funds into the company account to restore operations.");
-                        }
-                    }
-                    continue;
-                }
-
-                // Pay each member
-                String deductSql = "UPDATE companies SET bank_balance = bank_balance - ? WHERE id = ?";
-                String addSql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
-                for (CompanyMember member : members) {
-                    if (member.roleName.equals("owner") || member.salary <= 0) continue;
-                    try (PreparedStatement ds = plugin.getDatabaseManager().getConnection().prepareStatement(deductSql);
-                         PreparedStatement as = plugin.getDatabaseManager().getConnection().prepareStatement(addSql)) {
-                        ds.setDouble(1, member.salary); ds.setInt(2, companyId); ds.executeUpdate();
-                        as.setDouble(1, member.salary); as.setString(2, member.playerUuid.toString()); as.executeUpdate();
-                    }
-                    Player memberPlayer = plugin.getServer().getPlayer(member.playerUuid);
-                    if (memberPlayer != null) {
-                        CompanyInfo info = getCompanyById(companyId);
-                        String companyName = info != null ? info.name : "your employer";
-                        memberPlayer.sendMessage("§b§l[Salary] §fYou received §b" +
-                                plugin.getEconomyManager().format(member.salary) +
-                                " §ffrom §b" + companyName + "§f.");
-                    }
-                }
-            }
+    /**
+     * Updates the bankruptcy status of a company in the database.
+     */
+    public void setCompanyBankrupt(int companyId, boolean bankrupt) {
+        String sql = "UPDATE companies SET is_bankrupt = ? WHERE id = ?";
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setBoolean(1, bankrupt);
+            stmt.setInt(2, companyId);
+            stmt.executeUpdate();
         } catch (SQLException e) {
-            plugin.getLogger().severe("Error processing salaries: " + e.getMessage());
+            plugin.getLogger().severe("Error updating bankruptcy for company " + companyId + ": " + e.getMessage());
         }
     }
 
-    public void startSalaryScheduler() {
-        long oneDayTicks = 20L * 60 * 60 * 24;
-        plugin.getServer().getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            plugin.getServer().getScheduler().runTask(plugin, this::processDailySalaries);
-        }, oneDayTicks, oneDayTicks);
+    /**
+     * Sends a message to a player if they are currently online.
+     */
+    public void notifyPlayer(UUID uuid, String message) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            player.sendMessage(message);
+        }
+    }
+
+    private void processCompanySalaries() {
+        String companySql = "SELECT id, name, owner_uuid, bank_balance FROM companies WHERE is_bankrupt = FALSE";
+
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement compStmt = conn.prepareStatement(companySql);
+                 ResultSet rs = compStmt.executeQuery()) {
+
+                while (rs.next()) {
+                    int id = rs.getInt("id");
+                    String name = rs.getString("name");
+                    double balance = rs.getDouble("bank_balance");
+                    UUID ownerUuid = UUID.fromString(rs.getString("owner_uuid"));
+
+                    List<CompanyMember> members = getMembers(id);
+                    double totalPayroll = members.stream()
+                            .filter(m -> !m.roleName.equalsIgnoreCase("owner"))
+                            .mapToDouble(m -> m.salary).sum();
+
+                    if (totalPayroll <= 0) continue;
+
+                    if (balance < totalPayroll) {
+                        // BANKRUPTCY LOGIC
+                        setCompanyBankrupt(id, true);
+                        notifyPlayer(ownerUuid, "§4§l[Company] §f" + name + " §4is bankrupt! Payroll failed.");
+                        continue;
+                    }
+
+                    // Batch pay all employees
+                    payCompanyEmployees(conn, id, members);
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                plugin.getLogger().severe("Company payroll failed: " + e.getMessage());
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database connection error: " + e.getMessage());
+        }
+    }
+
+    // Helper to keep code clean and prevent connection leaks
+    private void payCompanyEmployees(Connection conn, int companyId, List<CompanyMember> members) throws SQLException {
+        String deductSql = "UPDATE companies SET bank_balance = bank_balance - ? WHERE id = ?";
+        String addSql = "UPDATE players SET bank_balance = bank_balance + ? WHERE uuid = ?";
+
+        try (PreparedStatement deductStmt = conn.prepareStatement(deductSql);
+             PreparedStatement addStmt = conn.prepareStatement(addSql)) {
+
+            for (CompanyMember m : members) {
+                if (m.roleName.equalsIgnoreCase("owner") || m.salary <= 0) continue;
+
+                // Deduct from company
+                deductStmt.setDouble(1, m.salary);
+                deductStmt.setInt(2, companyId);
+                deductStmt.executeUpdate();
+
+                // Add to player
+                addStmt.setDouble(1, m.salary);
+                addStmt.setString(2, m.playerUuid.toString());
+                addStmt.executeUpdate();
+
+                // Notify if online
+                Player p = Bukkit.getPlayer(m.playerUuid);
+                if (p != null) p.sendMessage("§b§l[Salary] §fYou received §b$" + m.salary + " §ffrom your company.");
+            }
+        }
     }
 
     // ---- Company Plots ----
