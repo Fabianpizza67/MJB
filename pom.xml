@@ -6,7 +6,7 @@
 
     <groupId>com.usermc.mjb</groupId>
     <artifactId>mjb</artifactId>
-    <version>0.8.9</version>
+    <version>0.8.10</version>
     <packaging>jar</packaging>
 
     <distributionManagement>
@@ -119,14 +119,6 @@
             <version>2.5.0</version>
             <scope>provided</scope>
         </dependency>
-
-    <dependency>
-        <groupId>nl.mtvehicles</groupId>
-        <artifactId>MinetopiaVehicles</artifactId>
-        <version>local</version>
-        <scope>system</scope>
-        <systemPath>${project.basedir}/libs/MTVehicles.jar</systemPath>
-    </dependency>
 
     <!-- Gson for JSON parsing (Gemini API responses) -->
     <dependency>

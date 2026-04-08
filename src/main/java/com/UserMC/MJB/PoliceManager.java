@@ -245,7 +245,7 @@ public class PoliceManager {
                 if (victim == null) continue;
 
                 if (officer == null || !officer.isOnline()) {
-                    // Officer offline — start 10 min countdown already scheduled, just slow victim
+                    // Officer offline — start 10-min countdown already scheduled, just slow victim
                     victim.setWalkSpeed(0.1f);
                     continue;
                 }

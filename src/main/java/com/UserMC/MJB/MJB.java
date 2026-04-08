@@ -274,14 +274,6 @@ public class MJB extends JavaPlugin {
             player.sendMessage("§7Call ended.");
             return true;
         });
-        if (getServer().getPluginManager().getPlugin("MTVehicles") != null) {
-            vehicleManager = new VehicleManager(this);
-            vehicleLicenseListener = new VehicleLicenseListener(this);
-            getServer().getPluginManager().registerEvents(vehicleLicenseListener, this);
-            getLogger().info("MTVehicles detected — vehicle license system enabled.");
-        } else {
-            getLogger().warning("MTVehicles not found — vehicle license system disabled.");
-        }
         getServer().getScheduler().runTaskAsynchronously(this, () -> {
             for (org.bukkit.OfflinePlayer p : getServer().getOfflinePlayers()) {
                 medicalRecordManager.assignBloodType(p.getUniqueId());

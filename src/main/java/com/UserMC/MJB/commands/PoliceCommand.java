@@ -226,42 +226,6 @@ public class PoliceCommand implements CommandExecutor, TabCompleter {
                 player.sendMessage("§b§l[Police] §fYour rank: §b" + rankStr);
             }
 
-            case "impound" -> {
-                if (plugin.getVehicleLicenseListener() == null) {
-                    player.sendMessage("§4Vehicle system is not available on this server.");
-                    return true;
-                }
-
-                ArmorStand stand = plugin.getVehicleLicenseListener()
-                        .findNearbyVehicle(player, 10.0);
-                if (stand == null) {
-                    player.sendMessage("§4No vehicle found nearby. Get closer to the vehicle.");
-                    return true;
-                }
-
-                Player driver = plugin.getVehicleLicenseListener().getRidingPlayer(stand);
-                String plate = plugin.getVehicleLicenseListener().getLicensePlate(stand);
-                String driverName = driver != null ? driver.getName() : "nobody";
-
-                stand.eject();
-
-                player.sendMessage("§f§l[Police] §fVehicle §b" + (plate != null ? plate : "unknown") +
-                        " §fimpounded. Driver: §b" + driverName + "§f.");
-
-                if (driver != null) {
-                    driver.sendMessage("§c§l[Police] §cYour vehicle has been impounded by §f" +
-                            player.getName() + "§c!");
-                    if (plugin.getVehicleManager().isLicenseRequired()) {
-                        plugin.getCrimeManager().addOffence(
-                                driver.getUniqueId(),
-                                "Vehicle (plate: " + (plate != null ? plate : "unknown") +
-                                        ") impounded by " + player.getName(),
-                                player.getUniqueId()
-                        );
-                    }
-                }
-            }
-
             default -> sendHelp(player);
         }
 
@@ -277,7 +241,6 @@ public class PoliceCommand implements CommandExecutor, TabCompleter {
         player.sendMessage("§f/police clear <player> §7- Expunge record (sgt only)");
         player.sendMessage("§f/police rank <player> <rank> §7- Change rank (sgt only)");
         player.sendMessage("§f/police myrank §7- View your rank");
-        player.sendMessage("§f/police impound §7- Impound a nearby vehicle (ejects driver)");
     }
 
     @Override
@@ -285,7 +248,7 @@ public class PoliceCommand implements CommandExecutor, TabCompleter {
         if (!(sender instanceof Player player)) return List.of();
         if (!plugin.getPoliceManager().isOfficer(player.getUniqueId())) return List.of();
 
-        List<String> subs = Arrays.asList("info", "wanted", "charge", "process", "clear", "rank", "myrank", "impound");
+        List<String> subs = Arrays.asList("info", "wanted", "charge", "process", "clear", "rank", "myrank");
 
         if (args.length == 1) {
             return subs.stream()

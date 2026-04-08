@@ -1,11 +1,11 @@
 name: MJB
-version: 0.8.9
+version: 0.8.10
 main: com.UserMC.MJB.MJB
 api-version: "1.21"
 authors: [Fabianpizza]
 description: MJB Plugin
 depend: [Vault, WorldGuard]
-softdepend: [Citizens, voicechat, MTVehicles]
+softdepend: [Citizens, voicechat]
 
 commands:
   pay:
