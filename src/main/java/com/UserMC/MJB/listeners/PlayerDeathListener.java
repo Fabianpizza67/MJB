@@ -39,12 +39,5 @@ public class PlayerDeathListener implements Listener {
         for (ItemStack cash : toRemove) {
             player.getWorld().dropItemNaturally(player.getLocation(), cash);
         }
-
-        if (!toRemove.isEmpty()) {
-            // Notify nearby players
-            player.getWorld().getNearbyPlayers(player.getLocation(), 20).forEach(nearby ->
-                    nearby.sendMessage("§c§l" + player.getName() + " §cdropped their cash!")
-            );
-        }
     }
 }

@@ -27,7 +27,7 @@ public class HospitalListener implements Listener {
     }
 
     // Fires LAST — after WeaponListener has set real damage at HIGHEST
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 

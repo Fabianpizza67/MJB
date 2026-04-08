@@ -287,21 +287,6 @@ public class PoliceListener implements Listener {
                             officer.sendMessage("§7  - §f" + displayName +
                                     " §7(§f" + entry.getValue() + "x §7in last 2.5min)");
                         }
-                        // Auto-add offence if drugs are illegal
-                        for (String drugId : results.keySet()) {
-                            com.UserMC.MJB.DrugManager.DrugType type =
-                                    com.UserMC.MJB.DrugManager.DrugType.fromId(drugId);
-                            if (type != null && !plugin.getDrugManager().isLegal(type)) {
-                                plugin.getCrimeManager().addOffence(
-                                        target.getUniqueId(),
-                                        "Tested positive for " +
-                                                (type.displayName) + " (drug test by " +
-                                                officer.getName() + ")",
-                                        officer.getUniqueId()
-                                );
-                            }
-                        }
-                        officer.sendMessage("§7Charges automatically added for illegal substances.");
                     }
                 }
             } catch (java.sql.SQLException e) {
