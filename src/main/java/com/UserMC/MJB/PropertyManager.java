@@ -158,7 +158,8 @@ public class PropertyManager {
         }
 
         double balance = plugin.getEconomyManager().getBankBalance(buyer.getUniqueId());
-        if (balance < listing.price) return PurchaseResult.INSUFFICIENT_FUNDS;
+        if (balance < listing.price * plugin.getMoneyModifier())
+            return PurchaseResult.INSUFFICIENT_FUNDS;
 
         World w = plugin.getServer().getWorld(world);
         if (w == null) return PurchaseResult.ERROR;
@@ -173,7 +174,8 @@ public class PropertyManager {
         // Deduct from buyer
         String deductSql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(deductSql)) {
-            stmt.setDouble(1, listing.price);
+            double adjustedPrice = listing.price * plugin.getMoneyModifier();
+            stmt.setDouble(1, adjustedPrice);
             stmt.setString(2, buyer.getUniqueId().toString());
             stmt.executeUpdate();
         } catch (SQLException e) {

@@ -47,6 +47,7 @@ public class MJB extends JavaPlugin {
     private SophieManager sophieManager;
     private DrugManager drugManager;
     private StarterStoreNPCListener starterStoreNPCListener;
+    private double moneyModifier = 1.0; // 1.0 = 100% = normal prices
 
     @Override
     public void onEnable() {
@@ -113,7 +114,7 @@ public class MJB extends JavaPlugin {
         idCardManager = new IDCardManager(this);
         drugManager = new DrugManager(this);
         drugManager.startAddictionScheduler();
-        radioManager  = new RadioManager(this);
+        radioManager = new RadioManager(this);
         sophieManager = new SophieManager(this);
         jailManager = new JailManager(this);
         jailManager.recoverPendingReleases();
@@ -280,7 +281,6 @@ public class MJB extends JavaPlugin {
             }
         });
 
-
         getLogger().info("MJB Enabled succesfully!");
     }
 
@@ -290,42 +290,160 @@ public class MJB extends JavaPlugin {
         getLogger().info("MJB Disabled.");
     }
 
-    public static MJB getInstance() { return instance; }
-    public DatabaseManager getDatabaseManager() { return databaseManager; }
-    public EconomyManager getEconomyManager() { return economyManager; }
-    public BankNPCListener getBankNPCListener() { return bankNPCListener; }
-    public CashItemManager getCashItemManager() { return cashItemManager; }
-    public PlotManager getPlotManager() { return plotManager; }
-    public DebitCardManager getDebitCardManager() { return debitCardManager; }
-    public TerminalManager getTerminalManager() { return terminalManager; }
-    public SupplyOrderManager getSupplyOrderManager() { return supplyOrderManager; }
-    public CompanyManager getCompanyManager() { return companyManager; }
-    public CompanyComputerListener getCompanyComputerListener() { return companyComputerListener; }
-    public PropertyManager getPropertyManager() { return propertyManager; }
-    public RealEstateNPCListener getRealEstateNPCListener() { return realEstateNPCListener; }
-    public LicenseManager getLicenseManager() { return licenseManager; }
-    public ClothingManager getClothingManager() { return clothingManager; }
-    public ThirstManager getThirstManager() { return thirstManager; }
-    public CraftingLicenseManager getCraftingLicenseManager() { return craftingLicenseManager; }
-    public WeaponManager getWeaponManager() { return weaponManager; }
-    public BlackMarketListener getBlackMarketListener() { return blackMarketListener; }
-    public PoliceManager getPoliceManager() { return policeManager; }
-    public CrimeManager getCrimeManager() { return crimeManager; }
-    public PoliceBudgetManager getPoliceBudgetManager() { return policeBudgetManager; }
-    public GovernmentManager getGovernmentManager() { return governmentManager; }
-    public PhoneManager getPhoneManager() { return phoneManager; }
-    public NameTagManager getNameTagManager() { return nameTagManager; }
-    public TimeSyncManager getTimeSyncManager() { return timeSyncManager; }
-    public VehicleManager getVehicleManager() { return vehicleManager; }
-    public VehicleLicenseListener getVehicleLicenseListener() { return vehicleLicenseListener; }
-    public TutorialManager getTutorialManager() { return tutorialManager; }
-    public HospitalManager getHospitalManager() { return hospitalManager; }
-    public HospitalBudgetManager getHospitalBudgetManager() { return hospitalBudgetManager; }
-    public MedicalRecordManager getMedicalRecordManager() { return medicalRecordManager; }
-    public IDCardManager getIDCardManager() { return idCardManager; }
-    public JailManager getJailManager() { return jailManager; }
-    public RadioManager getRadioManager()   { return radioManager; }
-    public SophieManager getSophieManager() { return sophieManager; }
-    public DrugManager getDrugManager() { return drugManager; }
+    public static MJB getInstance() {
+        return instance;
+    }
+
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
+    public EconomyManager getEconomyManager() {
+        return economyManager;
+    }
+
+    public BankNPCListener getBankNPCListener() {
+        return bankNPCListener;
+    }
+
+    public CashItemManager getCashItemManager() {
+        return cashItemManager;
+    }
+
+    public PlotManager getPlotManager() {
+        return plotManager;
+    }
+
+    public DebitCardManager getDebitCardManager() {
+        return debitCardManager;
+    }
+
+    public TerminalManager getTerminalManager() {
+        return terminalManager;
+    }
+
+    public SupplyOrderManager getSupplyOrderManager() {
+        return supplyOrderManager;
+    }
+
+    public CompanyManager getCompanyManager() {
+        return companyManager;
+    }
+
+    public CompanyComputerListener getCompanyComputerListener() {
+        return companyComputerListener;
+    }
+
+    public PropertyManager getPropertyManager() {
+        return propertyManager;
+    }
+
+    public RealEstateNPCListener getRealEstateNPCListener() {
+        return realEstateNPCListener;
+    }
+
+    public LicenseManager getLicenseManager() {
+        return licenseManager;
+    }
+
+    public ClothingManager getClothingManager() {
+        return clothingManager;
+    }
+
+    public ThirstManager getThirstManager() {
+        return thirstManager;
+    }
+
+    public CraftingLicenseManager getCraftingLicenseManager() {
+        return craftingLicenseManager;
+    }
+
+    public WeaponManager getWeaponManager() {
+        return weaponManager;
+    }
+
+    public BlackMarketListener getBlackMarketListener() {
+        return blackMarketListener;
+    }
+
+    public PoliceManager getPoliceManager() {
+        return policeManager;
+    }
+
+    public CrimeManager getCrimeManager() {
+        return crimeManager;
+    }
+
+    public PoliceBudgetManager getPoliceBudgetManager() {
+        return policeBudgetManager;
+    }
+
+    public GovernmentManager getGovernmentManager() {
+        return governmentManager;
+    }
+
+    public PhoneManager getPhoneManager() {
+        return phoneManager;
+    }
+
+    public NameTagManager getNameTagManager() {
+        return nameTagManager;
+    }
+
+    public TimeSyncManager getTimeSyncManager() {
+        return timeSyncManager;
+    }
+
+    public VehicleManager getVehicleManager() {
+        return vehicleManager;
+    }
+
+    public VehicleLicenseListener getVehicleLicenseListener() {
+        return vehicleLicenseListener;
+    }
+
+    public TutorialManager getTutorialManager() {
+        return tutorialManager;
+    }
+
+    public HospitalManager getHospitalManager() {
+        return hospitalManager;
+    }
+
+    public HospitalBudgetManager getHospitalBudgetManager() {
+        return hospitalBudgetManager;
+    }
+
+    public MedicalRecordManager getMedicalRecordManager() {
+        return medicalRecordManager;
+    }
+
+    public IDCardManager getIDCardManager() {
+        return idCardManager;
+    }
+
+    public JailManager getJailManager() {
+        return jailManager;
+    }
+
+    public RadioManager getRadioManager() {
+        return radioManager;
+    }
+
+    public SophieManager getSophieManager() {
+        return sophieManager;
+    }
+
+    public DrugManager getDrugManager() {
+        return drugManager;
+    }
+
+    public double getMoneyModifier() {
+        return moneyModifier;
+    }
+
+    public void setMoneyModifier(double modifier) {
+        this.moneyModifier = modifier;
+    }
 
 }
