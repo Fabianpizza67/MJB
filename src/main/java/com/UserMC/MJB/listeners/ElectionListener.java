@@ -59,13 +59,13 @@ public class ElectionListener implements Listener {
 
         gui.setItem(4, item(Material.PAPER, "§6§lElection",
                 "§7Vote for a party to give them a seat.",
-                "§7You cannot vote for your own party.",
+                "§7As party leader you cannot vote for your own party.",
                 "§7Your vote is anonymous."));
 
         int slot = 9;
         for (PartyInfo party : parties) {
             if (slot >= 45) break;
-            boolean isOwn = ownParty != null && ownParty.id == party.id;
+            boolean isOwn = ownParty != null && ownParty.leaderUuid == player.getUniqueId();
             int currentSeats = plugin.getGovernmentManager().getSeatsForParty(party.id);
             int memberCount = plugin.getGovernmentManager().getPartyMemberCount(party.id);
             String leaderName = plugin.getServer().getOfflinePlayer(party.leaderUuid).getName();
