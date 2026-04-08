@@ -368,7 +368,7 @@ public class GovernmentManager {
 
         // Can't vote for own party
         PartyInfo ownParty = getPartyByMember(voterUuid);
-        if (ownParty != null && ownParty.id == partyId) return false;
+        if (ownParty != null && ownParty.leaderUuid == voterUuid) return false;
 
         // Already voted?
         String checkSql = "SELECT 1 FROM election_votes WHERE election_id = ? AND voter_uuid = ?";
