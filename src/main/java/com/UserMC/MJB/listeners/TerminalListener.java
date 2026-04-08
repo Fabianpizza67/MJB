@@ -100,8 +100,7 @@ public class TerminalListener implements Listener {
             if (!cardOwner.equals(player.getUniqueId())) {
                 Player cardOwnerPlayer = plugin.getServer().getPlayer(cardOwner);
                 if (cardOwnerPlayer != null) {
-                    cardOwnerPlayer.sendMessage("§4§l[Alert] §f" + player.getName() +
-                            " §fused your debit card and charged §b" +
+                    cardOwnerPlayer.sendMessage("§4§l[Alert] §fSomeone used your debit card and charged §b" +
                             plugin.getEconomyManager().format(data.currentPrice) + "§f!");
                     cardOwnerPlayer.sendMessage("§7If this wasn't you, go to the bank and use §f/cancelcard§7.");
                 }

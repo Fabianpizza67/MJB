@@ -26,17 +26,17 @@ public class DrugManager {
     // Plant block for each drug type (null = no plant, e.g. morphine/fentanyl)
     private static final java.util.Map<DrugType, org.bukkit.Material> PLANT_BLOCKS =
             java.util.Map.of(
-                    DrugType.WEED,    org.bukkit.Material.SHORT_GRASS,
+                    DrugType.WEED, org.bukkit.Material.SHORT_GRASS,
                     DrugType.COCAINE, org.bukkit.Material.FERN,
-                    DrugType.HEROIN,  org.bukkit.Material.SWEET_BERRY_BUSH
+                    DrugType.HEROIN, org.bukkit.Material.SWEET_BERRY_BUSH
             );
 
     // Seed item material for each plantable drug
     private static final java.util.Map<DrugType, org.bukkit.Material> SEED_MATERIALS =
             java.util.Map.of(
-                    DrugType.WEED,    org.bukkit.Material.WHEAT_SEEDS,
+                    DrugType.WEED, org.bukkit.Material.WHEAT_SEEDS,
                     DrugType.COCAINE, org.bukkit.Material.NETHER_WART,
-                    DrugType.HEROIN,  org.bukkit.Material.TORCHFLOWER_SEEDS
+                    DrugType.HEROIN, org.bukkit.Material.TORCHFLOWER_SEEDS
             );
 
     // High duration: 5 seconds
@@ -53,8 +53,8 @@ public class DrugManager {
         WEED("Weed", Material.GREEN_DYE, 100.0),
         COCAINE("Cocaine", Material.SUGAR, 300.0),
         HEROIN("Heroin", Material.GLASS_BOTTLE, 500.0),
-        MORPHINE ("Morphine (Street)", Material.POTION,             200.0),
-        FENTANYL ("Fentanyl",          Material.FERMENTED_SPIDER_EYE, 1000.0);
+        MORPHINE("Morphine (Street)", Material.POTION, 200.0),
+        FENTANYL("Fentanyl", Material.FERMENTED_SPIDER_EYE, 1000.0);
 
         public final String displayName;
         public final Material material;
@@ -78,7 +78,7 @@ public class DrugManager {
         this.plugin = plugin;
         IS_DRUG_KEY = new NamespacedKey(plugin, "is_drug");
         DRUG_TYPE_KEY = new NamespacedKey(plugin, "drug_type");
-        IS_SEED_KEY   = new NamespacedKey(plugin, "is_drug_seed");
+        IS_SEED_KEY = new NamespacedKey(plugin, "is_drug_seed");
         SEED_TYPE_KEY = new NamespacedKey(plugin, "drug_seed_type");
     }
 
@@ -119,8 +119,7 @@ public class DrugManager {
         if (type == null) return false;
         return switch (type) {
             case WEED -> plugin.getGovernmentManager().areSoftDrugsLegal();
-            case COCAINE, HEROIN, MORPHINE, FENTANYL ->
-                    plugin.getGovernmentManager().areHardDrugsLegal();
+            case COCAINE, HEROIN, MORPHINE, FENTANYL -> plugin.getGovernmentManager().areHardDrugsLegal();
         };
     }
 
@@ -161,31 +160,31 @@ public class DrugManager {
         switch (type) {
             case WEED -> {
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.SPEED,      ticks, 0, false, true));
+                        PotionEffectType.SPEED, ticks, 0, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.JUMP_BOOST, ticks, 0, false, true));
             }
             case COCAINE -> {
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.SPEED,    ticks, 1, false, true));
+                        PotionEffectType.SPEED, ticks, 1, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.STRENGTH, ticks, 0, false, true));
             }
             case HEROIN -> {
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.SPEED,        ticks, 0, false, true));
+                        PotionEffectType.SPEED, ticks, 0, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.SLOW_FALLING, ticks, 0, false, true));
             }
             case MORPHINE -> {
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.SPEED,        ticks, 0, false, true));
+                        PotionEffectType.SPEED, ticks, 0, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.REGENERATION, ticks, 0, false, true));
             }
             case FENTANYL -> {
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.SPEED,    ticks, 2, false, true));
+                        PotionEffectType.SPEED, ticks, 2, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.STRENGTH, ticks, 1, false, true));
             }
@@ -225,11 +224,11 @@ public class DrugManager {
             case FENTANYL -> {
                 // Worst crash in the game — Slowness III + Blindness + Wither for 10 min
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.SLOWNESS,  12000, 2, false, true));
+                        PotionEffectType.SLOWNESS, 12000, 2, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.BLINDNESS, 12000, 0, false, true));
                 player.addPotionEffect(new PotionEffect(
-                        PotionEffectType.WITHER,    12000, 0, false, true));
+                        PotionEffectType.WITHER, 12000, 0, false, true));
                 player.sendMessage("§5§l[Fentanyl] §4Your body is shutting down.");
             }
         }
@@ -275,8 +274,8 @@ public class DrugManager {
             return 0;
         }
         if (uses >= 10) return 3;
-        if (uses >= 6)  return 2;
-        if (uses >= 3)  return 1;
+        if (uses >= 6) return 2;
+        if (uses >= 3) return 1;
         return 0;
     }
 
@@ -338,18 +337,19 @@ public class DrugManager {
                         PotionEffectType.WEAKNESS, duration, 1, false, true));
                 player.addPotionEffect(new PotionEffect(
                         PotionEffectType.NAUSEA, duration, 0, false, true));
-                // Hard drugs cause overdose at stage 3
-                if (type == DrugType.COCAINE || type == DrugType.HEROIN || type == DrugType.FENTANYL) {
-                    int delay = (120 + new Random().nextInt(180)) * 20;
-                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                        if (!player.isOnline()) return;
-                        if (getAddictionStage(player.getUniqueId(), type) < 3) return;
-                        if (plugin.getHospitalManager().isDowned(player.getUniqueId())) return;
-                        player.sendMessage("§4You just overdosed!");
-                        plugin.getHospitalManager().goDown(player,
-                                HospitalManager.InjuryType.OVERDOSE);
-                    }, delay);
-                }
+                // Drugs cause overdose at stage 3
+                int delay = (120 + new Random().nextInt(180)) * 20;
+                plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                    if (!player.isOnline()) return;
+                    if (getAddictionStage(player.getUniqueId(), type) < 3) return;
+                    if (plugin.getHospitalManager().isDowned(player.getUniqueId())) return;
+
+                    saveAddictionStage(player.getUniqueId(), type, 2);
+                    
+                    player.sendMessage("§4You just overdosed!");
+                    plugin.getHospitalManager().goDown(player,
+                            HospitalManager.InjuryType.OVERDOSE);
+                }, delay);
             }
         }
     }
