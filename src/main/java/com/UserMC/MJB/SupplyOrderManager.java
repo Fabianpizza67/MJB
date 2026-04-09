@@ -159,7 +159,9 @@ public class SupplyOrderManager {
     // ---- Orders ----
 
     public int placeOrder(UUID ownerUuid, int companyId, String district, List<OrderLine> lines) {
-        double totalCost = lines.stream().mapToDouble(l -> l.quantity * l.pricePerItem).sum();
+        double totalCost = lines.stream()
+                .mapToDouble(l -> l.quantity * l.pricePerItem)
+                .sum() * plugin.getMoneyModifier();
 
         String sql = "INSERT INTO supply_orders (owner_uuid, company_id, district, total_cost) VALUES (?, ?, ?, ?)";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -355,7 +357,7 @@ public class SupplyOrderManager {
                     : new org.bukkit.inventory.ItemStack(
                     org.bukkit.Material.valueOf(line.material));
             int remaining = line.quantity;
-            int maxStack  = template.getMaxStackSize();
+            int maxStack = template.getMaxStackSize();
             while (remaining > 0) {
                 int stackSize = Math.min(remaining, maxStack);
                 // Clone the template to preserve ALL metadata including PotionMeta
@@ -614,13 +616,13 @@ public class SupplyOrderManager {
         public SupplyItem(int id, String material, String displayName,
                           String licenseRequired, double pricePerItem,
                           int deliverySeconds, String itemData) {
-            this.id             = id;
-            this.material       = material;
-            this.displayName    = displayName != null ? displayName : formatMaterial(material);
+            this.id = id;
+            this.material = material;
+            this.displayName = displayName != null ? displayName : formatMaterial(material);
             this.licenseRequired = licenseRequired;
-            this.pricePerItem   = pricePerItem;
+            this.pricePerItem = pricePerItem;
             this.deliverySeconds = deliverySeconds;
-            this.itemData       = itemData;
+            this.itemData = itemData;
         }
 
         // Build the actual ItemStack for display/delivery
@@ -676,11 +678,11 @@ public class SupplyOrderManager {
 
         public OrderLine(String material, int quantity, double pricePerItem,
                          int deliverySeconds, int supplyItemId) {
-            this.material        = material;
-            this.quantity        = quantity;
-            this.pricePerItem    = pricePerItem;
+            this.material = material;
+            this.quantity = quantity;
+            this.pricePerItem = pricePerItem;
             this.deliverySeconds = deliverySeconds;
-            this.supplyItemId    = supplyItemId;
+            this.supplyItemId = supplyItemId;
         }
     }
 
@@ -711,7 +713,7 @@ public class SupplyOrderManager {
             ResultSet rs = stmt.executeQuery();
             int count = 0;
             while (rs.next()) {
-                int orderId        = rs.getInt("id");
+                int orderId = rs.getInt("id");
                 Timestamp orderedAt = rs.getTimestamp("ordered_at");
 
                 // We don't store the original delivery duration, so we need to recalculate
@@ -724,8 +726,8 @@ public class SupplyOrderManager {
                         .max()
                         .orElse(1800);
 
-                long orderedMs   = orderedAt.getTime();
-                long elapsedMs   = System.currentTimeMillis() - orderedMs;
+                long orderedMs = orderedAt.getTime();
+                long elapsedMs = System.currentTimeMillis() - orderedMs;
                 long remainingMs = ((long) maxDelivery * 1000) - elapsedMs;
 
                 if (remainingMs <= 0) {

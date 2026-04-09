@@ -32,10 +32,10 @@ public class WeaponManager {
     // ---- Weapon types ----
 
     public enum WeaponType {
-        PISTOL  (Material.NETHER_STAR,        "Pistol",  "pistol",  12, 3,  20.0, 3.5f, "§6"),
-        RIFLE   (Material.BLAZE_ROD,   "Rifle",   "rifle",   30, 8,  10.0, 5.0f, "§c"),
-        SHOTGUN (Material.GHAST_TEAR,  "Shotgun", "shotgun",  6, 15,  12.0, 2.5f, "§5"),
-        KNIFE   (Material.IRON_SWORD, "Knife",   "knife",    0,  0, 16.0, 0.0f, "§7");
+        PISTOL(Material.NETHER_STAR, "Pistol", "pistol", 12, 3, 20.0, 3.5f, "§6"),
+        RIFLE(Material.BLAZE_ROD, "Rifle", "rifle", 30, 8, 10.0, 5.0f, "§c"),
+        SHOTGUN(Material.GHAST_TEAR, "Shotgun", "shotgun", 6, 15, 12.0, 2.5f, "§5"),
+        KNIFE(Material.IRON_SWORD, "Knife", "knife", 0, 0, 16.0, 0.0f, "§7");
 
         public final Material material;
         public final String displayName;
@@ -69,15 +69,15 @@ public class WeaponManager {
     // ---- Prices ----
 
     public static final Map<String, Double> WEAPON_PRICES = Map.of(
-            "pistol",  6000.0,
-            "rifle",   12000.0,
+            "pistol", 6000.0,
+            "rifle", 12000.0,
             "shotgun", 8000.0,
-            "knife",   2000.0
+            "knife", 2000.0
     );
 
     public static final Map<String, Double> AMMO_PRICES = Map.of(
-            "pistol",  150.0,
-            "rifle",   300.0,
+            "pistol", 150.0,
+            "rifle", 300.0,
             "shotgun", 200.0
     );
 
@@ -85,14 +85,14 @@ public class WeaponManager {
 
     public WeaponManager(MJB plugin) {
         this.plugin = plugin;
-        IS_WEAPON_KEY            = new NamespacedKey(plugin, "is_weapon");
-        WEAPON_TYPE_KEY          = new NamespacedKey(plugin, "weapon_type");
-        WEAPON_AMMO_KEY          = new NamespacedKey(plugin, "weapon_ammo");
-        IS_AMMO_KEY              = new NamespacedKey(plugin, "is_ammo");
-        AMMO_TYPE_KEY            = new NamespacedKey(plugin, "ammo_type");
+        IS_WEAPON_KEY = new NamespacedKey(plugin, "is_weapon");
+        WEAPON_TYPE_KEY = new NamespacedKey(plugin, "weapon_type");
+        WEAPON_AMMO_KEY = new NamespacedKey(plugin, "weapon_ammo");
+        IS_AMMO_KEY = new NamespacedKey(plugin, "is_ammo");
+        AMMO_TYPE_KEY = new NamespacedKey(plugin, "ammo_type");
         IS_WEAPON_PROJECTILE_KEY = new NamespacedKey(plugin, "weapon_projectile");
-        PROJECTILE_DAMAGE_KEY    = new NamespacedKey(plugin, "projectile_damage");
-        PROJECTILE_SHOOTER_KEY   = new NamespacedKey(plugin, "projectile_shooter");
+        PROJECTILE_DAMAGE_KEY = new NamespacedKey(plugin, "projectile_damage");
+        PROJECTILE_SHOOTER_KEY = new NamespacedKey(plugin, "projectile_shooter");
         PROJECTILE_WEAPON_TYPE_KEY = new NamespacedKey(plugin, "projectile_weapon_type");
     }
 
@@ -116,8 +116,8 @@ public class WeaponManager {
         lore.add("§c§lPossession is illegal!");
 
         meta.setLore(lore);
-        meta.getPersistentDataContainer().set(IS_WEAPON_KEY,   PersistentDataType.BOOLEAN, true);
-        meta.getPersistentDataContainer().set(WEAPON_TYPE_KEY, PersistentDataType.STRING,  type.id);
+        meta.getPersistentDataContainer().set(IS_WEAPON_KEY, PersistentDataType.BOOLEAN, true);
+        meta.getPersistentDataContainer().set(WEAPON_TYPE_KEY, PersistentDataType.STRING, type.id);
         if (type != WeaponType.KNIFE) {
             meta.getPersistentDataContainer().set(WEAPON_AMMO_KEY, PersistentDataType.INTEGER, type.magSize);
         }
@@ -135,8 +135,8 @@ public class WeaponManager {
                 "§7For: §f" + type.displayName,
                 "§c§lIllegal item"
         ));
-        meta.getPersistentDataContainer().set(IS_AMMO_KEY,   PersistentDataType.BOOLEAN, true);
-        meta.getPersistentDataContainer().set(AMMO_TYPE_KEY, PersistentDataType.STRING,  type.id);
+        meta.getPersistentDataContainer().set(IS_AMMO_KEY, PersistentDataType.BOOLEAN, true);
+        meta.getPersistentDataContainer().set(AMMO_TYPE_KEY, PersistentDataType.STRING, type.id);
         item.setItemMeta(meta);
         return item;
     }
@@ -194,7 +194,10 @@ public class WeaponManager {
     public boolean isReloading(UUID uuid) {
         Long finish = reloadFinishTime.get(uuid);
         if (finish == null) return false;
-        if (System.currentTimeMillis() >= finish) { reloadFinishTime.remove(uuid); return false; }
+        if (System.currentTimeMillis() >= finish) {
+            reloadFinishTime.remove(uuid);
+            return false;
+        }
         return true;
     }
 
@@ -351,7 +354,9 @@ public class WeaponManager {
             this.id = id;
             this.location = null;
             this.worldName = worldName;
-            this.x = x; this.y = y; this.z = z;
+            this.x = x;
+            this.y = y;
+            this.z = z;
         }
     }
 }

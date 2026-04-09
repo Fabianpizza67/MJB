@@ -101,12 +101,12 @@ public class TutorialManager {
         TutorialProgress p = getProgress(player.getUniqueId());
         player.sendMessage("");
         player.sendMessage("§b§l--- Your City Guide --- §7(Sophie)");
-        player.sendMessage(step(p.visitedBank,      "Visit the bank and check your balance"));
+        player.sendMessage(step(p.visitedBank, "Visit the bank and check your balance"));
         player.sendMessage(step(p.claimedApartment, "Claim your starter apartment from the Housing NPC"));
-        player.sendMessage(step(p.checkedPhone,      "Open your phone and check your number"));
+        player.sendMessage(step(p.checkedPhone, "Open your phone and check your number"));
         player.sendMessage(step(p.visitedRealestate, "Visit the Real Estate office"));
-        player.sendMessage(step(p.visitedGov,        "Visit the Government Office"));
-        player.sendMessage(step(p.madeChoice,        "Choose your path: start a company or find a job"));
+        player.sendMessage(step(p.visitedGov, "Visit the Government Office"));
+        player.sendMessage(step(p.madeChoice, "Choose your path: start a company or find a job"));
         player.sendMessage(step(p.claimedStarterStore,
                 "Claim your free starter store from the Store Office NPC"));
         player.sendMessage("");
