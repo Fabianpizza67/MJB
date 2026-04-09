@@ -30,7 +30,7 @@ public class TimeSyncManager {
         if (world == null) return;
 
         ZonedDateTime now = ZonedDateTime.now(CET);
-        int hour   = now.getHour();
+        int hour = now.getHour();
         int minute = now.getMinute();
         int second = now.getSecond();
 

@@ -100,12 +100,13 @@ public class LicenseManager {
         }
 
         double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
-        if (balance < type.cost) return false;
+        double adjustedCost = type.cost * plugin.getMoneyModifier();
+        if (balance < adjustedCost) return false;
 
         // Deduct cost
         String deductSql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(deductSql)) {
-            stmt.setDouble(1, type.cost);
+            stmt.setDouble(1, adjustedCost);
             stmt.setString(2, player.getUniqueId().toString());
             stmt.executeUpdate();
         } catch (SQLException e) {
@@ -143,7 +144,8 @@ public class LicenseManager {
         if (existing.isRevoked) return false; // revoked — can't renew, must appeal
 
         double balance = plugin.getEconomyManager().getBankBalance(player.getUniqueId());
-        if (balance < type.renewalCost) return false;
+        double adjustedRenewal = type.renewalCost * plugin.getMoneyModifier();
+        if (balance < adjustedRenewal) return false;
 
         String deductSql = "UPDATE players SET bank_balance = bank_balance - ? WHERE uuid = ?";
         try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(deductSql)) {

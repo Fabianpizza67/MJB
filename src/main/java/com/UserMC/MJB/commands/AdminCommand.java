@@ -111,7 +111,8 @@ public class AdminCommand implements CommandExecutor {
                         player.sendMessage("§fNPC §b" + npc.getName() +
                                 " §fis now a starter store office NPC!");
                     }
-                    default -> player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket, policestation, starterstore");
+                    default ->
+                            player.sendMessage("§4Unknown type. Use: bankteller, housing, government, realestate, blackmarket, policestation, starterstore");
                 }
             }
 
@@ -257,8 +258,9 @@ public class AdminCommand implements CommandExecutor {
                     return true;
                 }
                 double price;
-                try { price = Double.parseDouble(args[2]); }
-                catch (NumberFormatException e) {
+                try {
+                    price = Double.parseDouble(args[2]);
+                } catch (NumberFormatException e) {
                     player.sendMessage("§4Invalid price.");
                     return true;
                 }
@@ -369,7 +371,7 @@ public class AdminCommand implements CommandExecutor {
                     double price;
                     int delivery;
                     try {
-                        price    = Double.parseDouble(args[3]);
+                        price = Double.parseDouble(args[3]);
                         delivery = Integer.parseInt(args[4]);
                     } catch (NumberFormatException e) {
                         player.sendMessage("§4Invalid price or delivery time.");
@@ -397,7 +399,7 @@ public class AdminCommand implements CommandExecutor {
                     double price;
                     int delivery;
                     try {
-                        price    = Double.parseDouble(args[3]);
+                        price = Double.parseDouble(args[3]);
                         delivery = Integer.parseInt(args[4]);
                     } catch (NumberFormatException e) {
                         player.sendMessage("§4Invalid price or delivery time.");
@@ -440,8 +442,12 @@ public class AdminCommand implements CommandExecutor {
                     return true;
                 }
                 double price;
-                try { price = Double.parseDouble(args[4]); }
-                catch (NumberFormatException e) { player.sendMessage("§4Invalid price."); return true; }
+                try {
+                    price = Double.parseDouble(args[4]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid price.");
+                    return true;
+                }
 
                 boolean ok = MJB.getInstance().getPropertyManager()
                         .registerListing(args[1].toLowerCase(), player.getWorld().getName(),
@@ -453,7 +459,10 @@ public class AdminCommand implements CommandExecutor {
 
             case "unlistproperty" -> {
                 // /mjbadmin unlistproperty <regionId>
-                if (args.length < 2) { player.sendMessage("§4Usage: /mjbadmin unlistproperty <region>"); return true; }
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /mjbadmin unlistproperty <region>");
+                    return true;
+                }
                 MJB.getInstance().getPropertyManager()
                         .unregisterListing(args[1].toLowerCase(), player.getWorld().getName());
                 player.sendMessage("§fListing §b" + args[1] + " §fremoved.");
@@ -466,7 +475,10 @@ public class AdminCommand implements CommandExecutor {
 
             case "issuelicense" -> {
                 // /mjbadmin issuelicense <player> <license_type>
-                if (args.length != 3) { player.sendMessage("§4Usage: /mjbadmin issuelicense <player> <license_type>"); return true; }
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin issuelicense <player> <license_type>");
+                    return true;
+                }
                 Player target = getTarget(player, args[1]);
                 if (target == null) return true;
                 // Admin bypass — issue without cost check
@@ -486,7 +498,10 @@ public class AdminCommand implements CommandExecutor {
 
             case "revokelicense" -> {
                 // /mjbadmin revokelicense <player> <license_type>
-                if (args.length != 3) { player.sendMessage("§4Usage: /mjbadmin revokelicense <player> <license_type>"); return true; }
+                if (args.length != 3) {
+                    player.sendMessage("§4Usage: /mjbadmin revokelicense <player> <license_type>");
+                    return true;
+                }
                 Player target = getTarget(player, args[1]);
                 if (target == null) return true;
                 boolean ok = MJB.getInstance().getLicenseManager().revokeLicense(
@@ -506,8 +521,13 @@ public class AdminCommand implements CommandExecutor {
                     return true;
                 }
                 double cost, renewal;
-                try { cost = Double.parseDouble(args[3]); renewal = Double.parseDouble(args[4]); }
-                catch (NumberFormatException e) { player.sendMessage("§4Invalid cost or renewal cost."); return true; }
+                try {
+                    cost = Double.parseDouble(args[3]);
+                    renewal = Double.parseDouble(args[4]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid cost or renewal cost.");
+                    return true;
+                }
                 // Join remaining args as description
                 StringBuilder desc = new StringBuilder();
                 for (int i = 5; i < args.length; i++) desc.append(args[i]).append(" ");
@@ -523,18 +543,29 @@ public class AdminCommand implements CommandExecutor {
                     return true;
                 }
                 org.bukkit.Material mat;
-                try { mat = org.bukkit.Material.valueOf(args[2].toUpperCase()); }
-                catch (IllegalArgumentException e) { player.sendMessage("§4Unknown material: §f" + args[2]); return true; }
+                try {
+                    mat = org.bukkit.Material.valueOf(args[2].toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    player.sendMessage("§4Unknown material: §f" + args[2]);
+                    return true;
+                }
                 boolean ok = MJB.getInstance().getCraftingLicenseManager().addRule(args[1].toLowerCase(), mat);
                 player.sendMessage(ok ? "§fCraft rule added: §b" + mat.name() + " §frequires §b" + args[1] + "§f." : "§4Failed.");
             }
 
             case "removecraftrule" -> {
                 // /mjbadmin removecraftrule <MATERIAL>
-                if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin removecraftrule <MATERIAL>"); return true; }
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin removecraftrule <MATERIAL>");
+                    return true;
+                }
                 org.bukkit.Material mat;
-                try { mat = org.bukkit.Material.valueOf(args[1].toUpperCase()); }
-                catch (IllegalArgumentException e) { player.sendMessage("§4Unknown material: §f" + args[1]); return true; }
+                try {
+                    mat = org.bukkit.Material.valueOf(args[1].toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    player.sendMessage("§4Unknown material: §f" + args[1]);
+                    return true;
+                }
                 boolean ok = MJB.getInstance().getCraftingLicenseManager().removeRule(mat);
                 player.sendMessage(ok ? "§fCraft rule for §b" + mat.name() + " §fremoved." : "§4Failed.");
             }
@@ -544,7 +575,10 @@ public class AdminCommand implements CommandExecutor {
                 java.util.List<com.UserMC.MJB.CraftingLicenseManager.CraftRule> rules = args.length >= 2
                         ? MJB.getInstance().getCraftingLicenseManager().getRulesForLicense(args[1].toLowerCase())
                         : MJB.getInstance().getCraftingLicenseManager().getAllRules();
-                if (rules.isEmpty()) { player.sendMessage("§7No craft rules found."); return true; }
+                if (rules.isEmpty()) {
+                    player.sendMessage("§7No craft rules found.");
+                    return true;
+                }
                 player.sendMessage("§b§l--- Craft Rules ---");
                 String currentLicense = null;
                 for (var rule : rules) {
@@ -562,23 +596,33 @@ public class AdminCommand implements CommandExecutor {
                         .addBlackMarketLocation(player.getLocation());
                 player.sendMessage(ok
                         ? "§fBlack market location added at §b" + player.getLocation().getBlockX() +
-                        ", " + player.getLocation().getBlockY() +
-                        ", " + player.getLocation().getBlockZ() + "§f."
+                          ", " + player.getLocation().getBlockY() +
+                          ", " + player.getLocation().getBlockZ() + "§f."
                         : "§4Failed to add location.");
             }
 
             case "removeblackmarket" -> {
-                if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin removeblackmarket <id>"); return true; }
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin removeblackmarket <id>");
+                    return true;
+                }
                 int id;
-                try { id = Integer.parseInt(args[1]); }
-                catch (NumberFormatException e) { player.sendMessage("§4Invalid ID."); return true; }
+                try {
+                    id = Integer.parseInt(args[1]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid ID.");
+                    return true;
+                }
                 boolean ok = MJB.getInstance().getWeaponManager().removeBlackMarketLocation(id);
                 player.sendMessage(ok ? "§fLocation §b" + id + " §fremoved." : "§4Failed.");
             }
 
             case "listblackmarket" -> {
                 var locs = MJB.getInstance().getWeaponManager().listBlackMarketLocationsRaw();
-                if (locs.isEmpty()) { player.sendMessage("§7No black market locations registered."); return true; }
+                if (locs.isEmpty()) {
+                    player.sendMessage("§7No black market locations registered.");
+                    return true;
+                }
                 player.sendMessage("§4§l--- Black Market Locations ---");
                 for (var loc : locs) {
                     player.sendMessage("§7ID §b" + loc.id + "§7: §f" + loc.worldName +
@@ -817,7 +861,10 @@ public class AdminCommand implements CommandExecutor {
 
             case "setvotingbooth" -> {
                 // /mjbadmin setvotingbooth <npc_id>
-                if (args.length != 2) { player.sendMessage("§4Usage: /mjbadmin setvotingbooth <npc_id>"); return true; }
+                if (args.length != 2) {
+                    player.sendMessage("§4Usage: /mjbadmin setvotingbooth <npc_id>");
+                    return true;
+                }
                 NPC npc = getNPC(player, args[1]);
                 if (npc == null) return true;
                 npc.data().setPersistent(
@@ -828,7 +875,10 @@ public class AdminCommand implements CommandExecutor {
             case "setcouncilregion" -> {
                 // /mjbadmin setcouncilregion — stand in the region
                 String regionId = MJB.getInstance().getPlotManager().getRegionAtPlayer(player);
-                if (regionId == null) { player.sendMessage("§4You are not in any WorldGuard region."); return true; }
+                if (regionId == null) {
+                    player.sendMessage("§4You are not in any WorldGuard region.");
+                    return true;
+                }
                 boolean ok = MJB.getInstance().getGovernmentManager()
                         .addCouncilRegion(regionId, player.getWorld().getName());
                 player.sendMessage(ok ? "§fRegion §b" + regionId + " §fset as council chamber." : "§4Failed.");
@@ -892,6 +942,44 @@ public class AdminCommand implements CommandExecutor {
                 player.sendMessage("§b§lPolice Budget: §f" +
                         MJB.getInstance().getEconomyManager().format(bal));
             }
+
+            case "moneymodifier" -> {
+                // /mjbadmin moneymodifier <percentage>
+                // e.g. 50 = half price, 100 = normal, 200 = double
+                if (args.length < 2) {
+                    player.sendMessage("§4Usage: /mjbadmin moneymodifier <percentage>");
+                    player.sendMessage("§7Example: §f/mjbadmin moneymodifier 50 " +
+                            "§7(makes everything 50% of normal price)");
+                    player.sendMessage("§7Current modifier: §b" +
+                            (int) (MJB.getInstance().getMoneyModifier() * 100) + "%");
+                    return true;
+                }
+                double pct;
+                try {
+                    pct = Double.parseDouble(args[1]);
+                } catch (NumberFormatException e) {
+                    player.sendMessage("§4Invalid percentage.");
+                    return true;
+                }
+                if (pct <= 0) {
+                    player.sendMessage("§4Percentage must be greater than 0.");
+                    return true;
+                }
+                double modifier = pct / 100.0;
+                MJB.getInstance().setMoneyModifier(modifier);
+                player.sendMessage("§fEconomy modifier set to §b" + (int) pct +
+                        "%§f of normal prices.");
+                player.sendMessage("§7Affects: supply orders, black market, licenses, " +
+                        "property prices.");
+                player.sendMessage("§7Does NOT affect: player payments, salaries.");
+                // Broadcast to all online players
+                for (Player p : MJB.getInstance().getServer().getOnlinePlayers()) {
+                    if (p.equals(player)) continue;
+                    p.sendMessage("§6§l[Economy] §fAn admin has adjusted economy prices to §b" +
+                            (int) pct + "% §fof normal.");
+                }
+            }
+
             case "paypolicenow" -> {
                 // Manually trigger salary payout for testing
                 MJB.getInstance().getPoliceBudgetManager().processDailySalaries();
@@ -995,5 +1083,6 @@ public class AdminCommand implements CommandExecutor {
         player.sendMessage("§f/mjbadmin addstarterstoreplot <region> §7- Add to starter store pool");
         player.sendMessage("§f/mjbadmin removestarterstoreplot <region> §7- Remove from starter store pool");
         player.sendMessage("§f/mjbadmin listplot <region> <price> §7- List a plot for sale (city listing)");
+        player.sendMessage("§f/mjbadmin moneymodifier <percentage> §7- Set global price modifier (100 = normal, 50 = half price)");
     }
 }
