@@ -743,6 +743,17 @@ public class DatabaseManager {
                     "Create starter_stores table");
 
             execute(stmt,
+                    "CREATE TABLE IF NOT EXISTS server_settings (" +
+                            "setting_key VARCHAR(64) PRIMARY KEY," +
+                            "value VARCHAR(256) NOT NULL" +
+                            ")",
+                    "Create server_settings table");
+
+            execute(stmt,
+                    "INSERT IGNORE INTO server_settings (setting_key, value) VALUES ('money_modifier', '1.0')",
+                    "Seed default money modifier");
+
+            execute(stmt,
                     "ALTER TABLE supply_order_items ADD COLUMN supply_item_id INT DEFAULT 0",
                     "Add supply_item_id to supply_order_items");
 

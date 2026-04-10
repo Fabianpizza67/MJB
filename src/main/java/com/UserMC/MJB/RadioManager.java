@@ -81,12 +81,15 @@ public class RadioManager {
                 .get(RADIO_CHANNEL_KEY, PersistentDataType.STRING);
     }
 
-    // Returns the radio a player is holding (main hand first, then off hand)
     public ItemStack getHeldRadio(Player player) {
         ItemStack main = player.getInventory().getItemInMainHand();
         if (isRadio(main)) return main;
         ItemStack off = player.getInventory().getItemInOffHand();
         if (isRadio(off)) return off;
+        // Search full inventory
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (isRadio(item)) return item;
+        }
         return null;
     }
 
@@ -137,25 +140,34 @@ public class RadioManager {
         for (Player p : plugin.getServer().getOnlinePlayers()) {
             if (!p.getWorld().equals(sender.getWorld())) continue;
             if (p.getLocation().distance(sender.getLocation()) > RANGE) continue;
+            if (p.equals(sender)) continue;
 
-            ItemStack radio = getHeldRadio(p);
-            if (radio == null) continue;
-
-            String baseChannel = getRadioChannel(radio);
-            if (!canUseFrequency(baseChannel, frequency)) continue;
-
-            // Don't double-send to the sender (handled below)
-            if (!p.equals(sender)) {
-                p.sendMessage(formatted);
-                recipients++;
+            // Check if they have any radio in inventory that can receive this frequency
+            boolean canReceive = false;
+            for (ItemStack item : p.getInventory().getContents()) {
+                if (!isRadio(item)) continue;
+                String baseChannel = getRadioChannel(item);
+                if (canUseFrequency(baseChannel, frequency)) {
+                    canReceive = true;
+                    break;
+                }
             }
+            // Also check offhand
+            if (!canReceive && isRadio(p.getInventory().getItemInOffHand())) {
+                String baseChannel = getRadioChannel(p.getInventory().getItemInOffHand());
+                if (canUseFrequency(baseChannel, frequency)) canReceive = true;
+            }
+
+            if (!canReceive) continue;
+            p.sendMessage(formatted);
+            recipients++;
         }
 
         // Always show to sender
         sender.sendMessage(formatted);
 
         plugin.getLogger().info("[Radio][" + freqLabel + "] " +
-                sender.getName() + ": " + message +
+                sender.getName() + ": " +
                 " (" + recipients + " other recipient(s) in range)");
     }
 }
