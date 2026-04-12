@@ -118,6 +118,13 @@ public class MJB extends JavaPlugin {
         sophieManager = new SophieManager(this);
         jailManager = new JailManager(this);
         jailManager.recoverPendingReleases();
+        String modSql = "SELECT value FROM server_settings WHERE setting_key = 'money_modifier'";
+        try (java.sql.PreparedStatement stmt = databaseManager.getConnection().prepareStatement(modSql)) {
+            java.sql.ResultSet rs = stmt.executeQuery();
+            if (rs.next()) moneyModifier = Double.parseDouble(rs.getString("value"));
+        } catch (Exception e) {
+            getLogger().warning("Could not load money modifier: " + e.getMessage());
+        }
 
         // 3. Listeners
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
@@ -444,6 +451,15 @@ public class MJB extends JavaPlugin {
 
     public void setMoneyModifier(double modifier) {
         this.moneyModifier = modifier;
+        String sql = "INSERT INTO server_settings (setting_key, value) VALUES ('money_modifier', ?) " +
+                "ON DUPLICATE KEY UPDATE value = ?";
+        try (java.sql.PreparedStatement stmt = databaseManager.getConnection().prepareStatement(sql)) {
+            stmt.setString(1, String.valueOf(modifier));
+            stmt.setString(2, String.valueOf(modifier));
+            stmt.executeUpdate();
+        } catch (java.sql.SQLException e) {
+            getLogger().severe("Could not save money modifier: " + e.getMessage());
+        }
     }
 
 }

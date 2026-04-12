@@ -219,7 +219,8 @@ public class PropertyManager {
             // City listing — pay into treasury
             String treasurySql = "UPDATE city_treasury SET balance = balance + ?";
             try (PreparedStatement stmt = plugin.getDatabaseManager().getConnection().prepareStatement(treasurySql)) {
-                stmt.setDouble(1, listing.price);
+                double adjustedPrice = listing.price * plugin.getMoneyModifier();
+                stmt.setDouble(1, adjustedPrice);
                 stmt.executeUpdate();
             } catch (SQLException e) {
                 plugin.getLogger().severe("Error adding to treasury: " + e.getMessage());

@@ -158,6 +158,7 @@ public class EmergencyCommand implements CommandExecutor {
 
         // Confirm to caller
         player.sendMessage("§c§l[911] §7Your call has been dispatched.");
+        sendDispatcherResponse(player, msg, needPolice, needMedical);
 
         List<String> categories = new ArrayList<>();
         if (needPolice)  categories.add("§9POLICE§7");
@@ -276,6 +277,7 @@ public class EmergencyCommand implements CommandExecutor {
                                 }
                             }
                         }
+                        sendDispatcherResponse(player, finalMsg, aiPolice, aiMedical);
 
                         // Update caller
                         if (aiPolice || aiMedical) {
@@ -308,4 +310,82 @@ public class EmergencyCommand implements CommandExecutor {
 
         return true;
     }
+
+    private void sendDispatcherResponse(Player caller, String message,
+                                        boolean police, boolean medical) {
+        String apiKey = plugin.getConfig().getString("ai.gemini_api_key", "");
+        if (apiKey.isEmpty() || apiKey.equals("YOUR_GEMINI_API_KEY_HERE")) return;
+
+        String prompt = "You are a calm, professional emergency dispatcher for a city. " +
+                "A citizen called '" + caller.getName() + "' sent this 911 message: \"" + message + "\". " +
+                "Dispatched units: " + (police && medical ? "Police and Medical" :
+                police ? "Police" : medical ? "Medical" : "All available units") + ". " +
+                "Write a short, realistic dispatcher confirmation (1-2 sentences max). " +
+                "Be professional and reassuring. Don't use emojis.";
+
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                java.net.URL url = new java.net.URL(
+                        "https://generativelanguage.googleapis.com/v1beta/models/" +
+                                "gemini-3.1-flash-lite-preview:generateContent?key=" + apiKey);
+                java.net.HttpURLConnection conn =
+                        (java.net.HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(7000);
+
+                com.google.gson.JsonObject body    = new com.google.gson.JsonObject();
+                com.google.gson.JsonObject part    = new com.google.gson.JsonObject();
+                part.addProperty("text", prompt);
+                com.google.gson.JsonArray parts    = new com.google.gson.JsonArray();
+                parts.add(part);
+                com.google.gson.JsonObject content = new com.google.gson.JsonObject();
+                content.addProperty("role", "user");
+                content.add("parts", parts);
+                com.google.gson.JsonArray contents = new com.google.gson.JsonArray();
+                contents.add(content);
+                body.add("contents", contents);
+                com.google.gson.JsonObject genConfig = new com.google.gson.JsonObject();
+                genConfig.addProperty("maxOutputTokens", 60);
+                genConfig.addProperty("temperature", 0.4);
+                body.add("generationConfig", genConfig);
+
+                try (java.io.OutputStream os = conn.getOutputStream()) {
+                    os.write(body.toString()
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+
+                if (conn.getResponseCode() != 200) return;
+
+                StringBuilder response = new StringBuilder();
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(conn.getInputStream(),
+                                java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) response.append(line);
+                }
+
+                com.google.gson.JsonObject json =
+                        com.google.gson.JsonParser.parseString(response.toString())
+                                .getAsJsonObject();
+                String text = json.getAsJsonArray("candidates")
+                        .get(0).getAsJsonObject()
+                        .getAsJsonObject("content")
+                        .getAsJsonArray("parts")
+                        .get(0).getAsJsonObject()
+                        .get("text").getAsString().trim();
+
+                plugin.getServer().getScheduler().runTask(plugin, () ->
+                        caller.sendMessage("§c§l[Dispatch] §f" + text));
+
+            } catch (Exception e) {
+                // Silent fail — dispatcher response is cosmetic, not critical
+                plugin.getLogger().fine("[911 Dispatch] AI response failed: "
+                        + e.getMessage());
+            }
+        });
+    }
 }
+
