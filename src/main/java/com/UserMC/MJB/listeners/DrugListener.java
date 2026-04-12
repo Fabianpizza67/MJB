@@ -59,10 +59,8 @@ public class DrugListener implements Listener {
             if (type == null) return;
             String regionId = plugin.getPlotManager()
                     .getRegionAtLocation(clicked.getLocation());
-            if (regionId == null ||
-                    !plugin.getPlotManager().isPlotOwner(
-                            player.getUniqueId(), regionId)) {
-                player.sendMessage("§4You can only plant on your own plot.");
+            if (regionId == null || plugin.getPlotManager().getPlotInfo(regionId, player.getWorld()).members.contains(player.getUniqueId())) {
+                player.sendMessage("§4You can only plant on a plot where you have permission to build.");
                 event.setCancelled(true);
                 return;
             }

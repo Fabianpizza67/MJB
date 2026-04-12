@@ -79,11 +79,11 @@ public class ClothingManager {
     }
 
     public void startDrainScheduler() {
-        // 20 ticks/sec * 60 sec = 1200 ticks per minute
+        // 20 ticks/sec * 60 sec * 5 min = 6000 ticks per minute
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : plugin.getServer().getOnlinePlayers()) {
                 drainDurability(player);
             }
-        }, 1200L, 1200L);
+        }, 6000L, 6000L);
     }
 }

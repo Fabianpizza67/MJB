@@ -6,7 +6,8 @@
 
     <groupId>com.usermc.mjb</groupId>
     <artifactId>mjb</artifactId>
-    <version>0.9.3</version>
+    <version>0.9.4</version>
+
     <packaging>jar</packaging>
 
     <distributionManagement>
